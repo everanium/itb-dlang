@@ -1,0 +1,28 @@
+# DUB build artefacts
+.dub/
+*.lib
+*.a
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+__test__library__
+bench/bin/
+bench/results/
+itb-binding
+itb-test-runner
+itb-bench
+itb-bench-single
+itb-bench-triple
+
+# Per-test compiled binaries (run_tests.sh writes here)
+tests/build/
+
+# IDE / editor state
+.vscode/
+*.suo
+*.user
+
+# Local scratch — never staged
+scratch/

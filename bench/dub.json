@@ -1,0 +1,71 @@
+{
+    "name": "bench",
+    "description": "ITB D binding benchmark harness.",
+    "license": "MIT",
+    "authors": ["ITB project"],
+
+    "targetType": "none",
+
+    "subPackages": [
+        {
+            "name": "single",
+            "targetType": "executable",
+            "targetName": "itb-bench-single",
+            "targetPath": "bin",
+            "sourcePaths": [],
+            "importPaths": [],
+            "sourceFiles": [
+                "source/common.d",
+                "source/bench_single.d"
+            ],
+            "dependencies": {
+                "itb": { "path": ".." }
+            },
+            "lflags-posix-dmd": [
+                "-L../../../dist/linux-amd64",
+                "-litb",
+                "-rpath=$$ORIGIN/../../../../dist/linux-amd64"
+            ],
+            "lflags-posix-ldc": [
+                "-L../../../dist/linux-amd64",
+                "-litb",
+                "-rpath=$$ORIGIN/../../../../dist/linux-amd64"
+            ],
+            "lflags-posix-gdc": [
+                "-L../../../dist/linux-amd64",
+                "-litb",
+                "-Wl,-rpath,$$ORIGIN/../../../../dist/linux-amd64"
+            ]
+        },
+        {
+            "name": "triple",
+            "targetType": "executable",
+            "targetName": "itb-bench-triple",
+            "targetPath": "bin",
+            "sourcePaths": [],
+            "importPaths": [],
+            "sourceFiles": [
+                "source/common.d",
+                "source/bench_triple.d"
+            ],
+            "dependencies": {
+                "itb": { "path": ".." }
+            },
+            "lflags-posix-dmd": [
+                "-L../../../dist/linux-amd64",
+                "-litb",
+                "-rpath=$$ORIGIN/../../../../dist/linux-amd64"
+            ],
+            "lflags-posix-ldc": [
+                "-L../../../dist/linux-amd64",
+                "-litb",
+                "-rpath=$$ORIGIN/../../../../dist/linux-amd64"
+            ],
+            "lflags-posix-gdc": [
+                "-L../../../dist/linux-amd64",
+                "-litb",
+                "-Wl,-rpath,$$ORIGIN/../../../../dist/linux-amd64"
+            ]
+        }
+    ]
+}

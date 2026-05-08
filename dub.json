@@ -1,0 +1,15 @@
+{
+    "name": "itb",
+    "description": "ITB encryption - D language binding over libitb's C ABI.",
+    "license": "MIT",
+    "authors": ["ITB project"],
+
+    "targetType": "library",
+    "targetPath": "lib",
+    "sourcePaths": ["src"],
+    "importPaths": ["src"],
+
+    "subPackages": [
+        "./bench"
+    ]
+}
