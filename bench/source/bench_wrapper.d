@@ -172,23 +172,23 @@ private BenchCase makeWrapperOnlyAlloc(string name, Cipher cipher) @trusted
 
 private BenchCase makeWrapperOnlyInPlace(string name, Cipher cipher) @trusted
 {
-    auto base = randomBytes(MSG_BYTES);
+    auto plaintext = randomBytes(MSG_BYTES);
     auto key = wrapperGenerateKey(cipher);
-    auto buf = base.dup;
+    immutable size_t nlen = nonceSize(cipher);
+    // Pre-encrypt plaintext into wire once (untimed) so the timed loop
+    // alternates UnwrapInPlace → WrapInPlace on the same buffer with no
+    // per-iteration memcpy. Mirrors the Go-native pattern at
+    // wrapper/bench_test.go::BenchmarkWrapperOnlyInPlace.
+    auto wire = new ubyte[](nlen + plaintext.length);
+    wire[nlen .. nlen + plaintext.length] = plaintext[];
+    auto nonceSetup = wrapInPlace(cipher, key, wire[nlen .. $]);
+    wire[0 .. nlen] = nonceSetup[];
     BenchFn run = (ulong iters) {
         foreach (_; 0 .. iters)
         {
-            // wrapInPlace mutates buf, returns nonce. Compose wire =
-            // nonce || buf manually for the unwrap step.
-            auto nonce = wrapInPlace(cipher, key, buf);
-            ubyte[] wire;
-            wire.reserve(nonce.length + buf.length);
-            wire ~= nonce;
-            wire ~= buf;
             cast(void) unwrapInPlace(cipher, key, wire);
-            // Reset buf for the next iter (otherwise XOR keeps walking
-            // away from the original).
-            buf[] = base[];
+            auto newNonce = wrapInPlace(cipher, key, wire[nlen .. $]);
+            wire[0 .. nlen] = newNonce[];
         }
     };
     return BenchCase(name, run, MSG_BYTES);
