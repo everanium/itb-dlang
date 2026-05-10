@@ -104,3 +104,22 @@ public import itb.streams :
     encryptStreamAuthTriple,
     decryptStreamAuthTriple,
     DEFAULT_CHUNK_SIZE;
+public import itb.wrapper :
+    Cipher,
+    CIPHER_NAMES,
+    ffiName,
+    cipherFromName,
+    keySize,
+    nonceSize,
+    wrapperGenerateKey,
+    wrap,
+    unwrap,
+    wrapInPlace,
+    unwrapInPlace,
+    WrapStreamWriter,
+    UnwrapStreamReader,
+    WrapperError,
+    WrapperInvalidCipherError,
+    WrapperInvalidKeyError,
+    WrapperInvalidNonceError,
+    WrapperHandleClosedError;

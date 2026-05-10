@@ -1,0 +1,32 @@
+{
+    "name": "eitb",
+    "description": "ITB D binding format-deniability example matrix runner.",
+    "license": "MIT",
+    "authors": ["ITB project"],
+
+    "targetType": "executable",
+    "targetName": "eitb",
+    "targetPath": "bin",
+    "sourcePaths": ["source"],
+    "importPaths": ["source"],
+
+    "dependencies": {
+        "itb": { "path": ".." }
+    },
+
+    "lflags-posix-dmd": [
+        "-L../../../dist/linux-amd64",
+        "-litb",
+        "-rpath=$$ORIGIN/../../../../dist/linux-amd64"
+    ],
+    "lflags-posix-ldc": [
+        "-L../../../dist/linux-amd64",
+        "-litb",
+        "-rpath=$$ORIGIN/../../../../dist/linux-amd64"
+    ],
+    "lflags-posix-gdc": [
+        "-L../../../dist/linux-amd64",
+        "-litb",
+        "-Wl,-rpath,$$ORIGIN/../../../../dist/linux-amd64"
+    ]
+}

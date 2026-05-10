@@ -384,3 +384,60 @@ int ITB_Easy_DecryptStreamAuth(
     void* ciphertext, size_t ctLen,
     ubyte* streamID, ulong cumulativePixelOffset,
     void* outBuf, size_t outCap, size_t* outLen, int* finalFlagOut);
+
+// ----- Format-deniability wrapper surface -------------------------------
+//
+// 12 entry points binding the Go-side `wrapper` package to the FFI:
+// key / nonce introspection (2), Single Message wrap / unwrap (2),
+// in-place wrap / unwrap (2), streaming writer init / update / free
+// (3), streaming reader init / update / free (3). Wraps an ITB
+// ciphertext under one of three outer keystream ciphers — AES-128-CTR,
+// ChaCha20 (RFC8439), SipHash-2-4 in CTR mode — for format-deniability.
+// See the Go-side `github.com/everanium/itb/wrapper` package for the
+// canonical contract. Bindings module: `itb.wrapper`.
+
+int ITB_WrapperKeySize(char* cipherName, size_t* outSize);
+int ITB_WrapperNonceSize(char* cipherName, size_t* outSize);
+
+int ITB_Wrap(
+    char* cipherName,
+    void* key, size_t keyLen,
+    void* blob, size_t blobLen,
+    void* outBuf, size_t outCap, size_t* outLen);
+int ITB_Unwrap(
+    char* cipherName,
+    void* key, size_t keyLen,
+    void* wire, size_t wireLen,
+    void* outBuf, size_t outCap, size_t* outLen);
+
+int ITB_WrapInPlace(
+    char* cipherName,
+    void* key, size_t keyLen,
+    void* blob, size_t blobLen,
+    void* outNonce, size_t nonceCap);
+int ITB_UnwrapInPlace(
+    char* cipherName,
+    void* key, size_t keyLen,
+    void* wire, size_t wireLen);
+
+int ITB_WrapStreamWriter_Init(
+    char* cipherName,
+    void* key, size_t keyLen,
+    void* outNonce, size_t nonceCap,
+    size_t* outHandle);
+int ITB_WrapStreamWriter_Update(
+    size_t handle,
+    void* src, size_t srcLen,
+    void* dst, size_t dstCap);
+int ITB_WrapStreamWriter_Free(size_t handle);
+
+int ITB_UnwrapStreamReader_Init(
+    char* cipherName,
+    void* key, size_t keyLen,
+    void* wireNonce, size_t nonceLen,
+    size_t* outHandle);
+int ITB_UnwrapStreamReader_Update(
+    size_t handle,
+    void* src, size_t srcLen,
+    void* dst, size_t dstCap);
+int ITB_UnwrapStreamReader_Free(size_t handle);

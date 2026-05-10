@@ -10,6 +10,7 @@
 __test__library__
 bench/bin/
 bench/results/
+eitb/bin/
 itb-binding
 itb-test-runner
 itb-bench

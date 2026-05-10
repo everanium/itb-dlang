@@ -66,6 +66,36 @@
                 "-litb",
                 "-Wl,-rpath,$$ORIGIN/../../../../dist/linux-amd64"
             ]
+        },
+        {
+            "name": "wrapper",
+            "targetType": "executable",
+            "targetName": "itb-bench-wrapper",
+            "targetPath": "bin",
+            "sourcePaths": [],
+            "importPaths": [],
+            "sourceFiles": [
+                "source/common.d",
+                "source/bench_wrapper.d"
+            ],
+            "dependencies": {
+                "itb": { "path": ".." }
+            },
+            "lflags-posix-dmd": [
+                "-L../../../dist/linux-amd64",
+                "-litb",
+                "-rpath=$$ORIGIN/../../../../dist/linux-amd64"
+            ],
+            "lflags-posix-ldc": [
+                "-L../../../dist/linux-amd64",
+                "-litb",
+                "-rpath=$$ORIGIN/../../../../dist/linux-amd64"
+            ],
+            "lflags-posix-gdc": [
+                "-L../../../dist/linux-amd64",
+                "-litb",
+                "-Wl,-rpath,$$ORIGIN/../../../../dist/linux-amd64"
+            ]
         }
     ]
 }

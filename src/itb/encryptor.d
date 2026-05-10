@@ -43,7 +43,7 @@
 /// concatenated stream by reading the chunk header, calling
 /// `parseChunkLen`, and feeding the chunk to `decrypt`. The
 /// encryptor's chunk-size knob (set via `setChunkSize`) is consumed
-/// only by the Go-side `EncryptStream` entry point; one-shot
+/// only by the Go-side `EncryptStream` entry point; Single Message
 /// `encrypt` honours the container-cap heuristic in `itb.ChunkSize`.
 ///
 /// Output-buffer cache. The cipher methods reuse a per-encryptor
@@ -1098,7 +1098,7 @@ struct Encryptor
         // alloc per chunk. Same grow-on-demand + wipe-on-grow shape as
         // `_cipherCall`; the streaming driver's hot loop benefits from
         // amortising the allocation across every chunk just like the
-        // single-shot Easy Mode path does.
+        // Single Message Easy Mode path does.
         _ensureCache(cap);
         size_t written = 0;
         int rc = ITB_Easy_EncryptStreamAuth(

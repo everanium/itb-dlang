@@ -126,25 +126,72 @@ Filter to a subset by passing test names as positional arguments:
 
 ```d
 import std.stdio : File;
-import itb.encryptor : Encryptor;
+import itb;
 
 enum SRC_PATH   = "/tmp/64mb.src";
+enum INNER_PATH = "/tmp/64mb.inner";
 enum ENC_PATH   = "/tmp/64mb.enc";
 enum DST_PATH   = "/tmp/64mb.dst";
 enum CHUNK_SIZE = 16UL * 1024 * 1024;
 
+// Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB inner PRF + seeds keep CSPRNG-fresh randomness per call.
+auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+
 auto enc = Encryptor("areion512", 1024, "hmac-blake3", 1);
 {
-    auto fin  = File(SRC_PATH, "rb");
-    auto fout = File(ENC_PATH, "wb");
+    // Stage 1: encrypt plaintext into a buffered inner-transcript file.
+    auto fin  = File(SRC_PATH,   "rb");
+    auto fout = File(INNER_PATH, "wb");
     size_t reader(ubyte[] buf) @trusted { return fin.rawRead(buf).length; }
     void   writer(const(ubyte)[] d) @trusted { fout.rawWrite(d); }
     enc.encryptStreamAuth(&reader, &writer, cast(size_t) CHUNK_SIZE);
 }
 {
+    // Stage 2: pump the inner ITB transcript through one wrap-stream
+    // session so the on-wire bytes carry no ITB framing.
+    auto fin  = File(INNER_PATH, "rb");
+    auto fout = File(ENC_PATH,   "wb");
+    // Format-deniability ITB masking via outer-cipher streaming wrapper (AES-128-CTR) - same ~0% overhead in stream mode (Recommended in every case).
+    auto ww = WrapStreamWriter(Cipher.aes128Ctr, outerKey);
+    scope(exit) ww.close();
+    fout.rawWrite(ww.nonce);
+    ubyte[1 << 20] buf;
+    for (;;)
+    {
+        auto slice = fin.rawRead(buf[]);
+        if (slice.length == 0) break;
+        fout.rawWrite(ww.update(slice));
+    }
+}
+{
+    // Receiver — strip the leading nonce, unwrap each block, hand the
+    // inner ITB transcript to decryptStreamAuth.
     auto fin  = File(ENC_PATH, "rb");
-    auto fout = File(DST_PATH, "wb");
-    size_t reader(ubyte[] buf) @trusted { return fin.rawRead(buf).length; }
+    auto innerOut = File(INNER_PATH, "wb");
+    ubyte[] nonceBuf = new ubyte[nonceSize(Cipher.aes128Ctr)];
+    {
+        size_t got = 0;
+        while (got < nonceBuf.length)
+        {
+            auto s = fin.rawRead(nonceBuf[got .. $]);
+            if (s.length == 0) break;
+            got += s.length;
+        }
+    }
+    auto ur = UnwrapStreamReader(Cipher.aes128Ctr, outerKey, nonceBuf);
+    scope(exit) ur.close();
+    ubyte[1 << 20] buf;
+    for (;;)
+    {
+        auto slice = fin.rawRead(buf[]);
+        if (slice.length == 0) break;
+        innerOut.rawWrite(ur.update(slice));
+    }
+    innerOut.close();
+
+    auto innerIn = File(INNER_PATH, "rb");
+    auto fout    = File(DST_PATH,   "wb");
+    size_t reader(ubyte[] b) @trusted { return innerIn.rawRead(b).length; }
     void   writer(const(ubyte)[] d) @trusted { fout.rawWrite(d); }
     enc.decryptStreamAuth(&reader, &writer, cast(size_t) CHUNK_SIZE);
 }
@@ -199,9 +246,7 @@ Easy Mode dst sha256: 7adc82f9bebf205db2a6c8033d7c1fe43d3bf8b3ecb0fbfd6c4c2dff71
 Free functions `encryptStreamAuth` / `decryptStreamAuth` in `itb.streams` take three explicit `Seed` instances plus a `MAC` (32-byte key from `/dev/urandom`) and stream through the same chunked-AEAD construction. Reader / writer delegates wired to per-call `File` objects feed each side.
 
 ```d
-import itb.seed : Seed;
-import itb.mac : MAC;
-import itb.streams : encryptStreamAuth, decryptStreamAuth;
+import itb;
 
 auto noise = Seed("areion512", 1024);
 auto data  = Seed("areion512", 1024);
@@ -209,13 +254,34 @@ auto start = Seed("areion512", 1024);
 auto macKey = csprngMacKey();           // 32 bytes from /dev/urandom
 auto mac = MAC("hmac-blake3", macKey[]);
 
+// Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB inner PRF + seeds keep CSPRNG-fresh randomness per call.
+auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+
 {
-    auto fin  = File(SRC_PATH, "rb");
-    auto fout = File(ENC_PATH, "wb");
+    // Stage 1: encrypt plaintext into a buffered inner-transcript file.
+    auto fin  = File(SRC_PATH,   "rb");
+    auto fout = File(INNER_PATH, "wb");
     size_t reader(ubyte[] buf) @trusted { return fin.rawRead(buf).length; }
     void   writer(const(ubyte)[] d) @trusted { fout.rawWrite(d); }
     encryptStreamAuth(noise, data, start, mac,
                       &reader, &writer, cast(size_t) CHUNK_SIZE);
+}
+{
+    // Stage 2: pump the inner ITB transcript through one wrap-stream
+    // session so the on-wire bytes carry no ITB framing.
+    auto fin  = File(INNER_PATH, "rb");
+    auto fout = File(ENC_PATH,   "wb");
+    // Format-deniability ITB masking via outer-cipher streaming wrapper (AES-128-CTR) - same ~0% overhead in stream mode (Recommended in every case).
+    auto ww = WrapStreamWriter(Cipher.aes128Ctr, outerKey);
+    scope(exit) ww.close();
+    fout.rawWrite(ww.nonce);
+    ubyte[1 << 20] buf;
+    for (;;)
+    {
+        auto slice = fin.rawRead(buf[]);
+        if (slice.length == 0) break;
+        fout.rawWrite(ww.update(slice));
+    }
 }
 ```
 
@@ -273,6 +339,9 @@ import std.stdio : writefln;
 // mode = 3 = Triple Ouroboros (7 seeds).
 auto enc = Encryptor("areion512", 2048, "hmac-blake3", 1);
 
+// Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB inner PRF + seeds keep CSPRNG-fresh randomness per call.
+auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+
 enc.setNonceBits(512);    // 512-bit nonce (default: 128-bit)
 enc.setBarrierFill(4);    // CSPRNG fill margin (default: 1, valid: 1, 2, 4, 8, 16, 32)
 enc.setBitSoup(1);        // optional bit-level split ("bit-soup"; default: 0 = byte-level)
@@ -304,8 +373,15 @@ auto plaintext = cast(const(ubyte)[]) "any text or binary data - including 0x00 
 // Authenticated encrypt — 32-byte tag is computed across the
 // entire decrypted capacity and embedded inside the RGBWYOPA
 // container, preserving oracle-free deniability.
-auto encrypted = enc.encryptAuth(plaintext);
+auto encrypted = enc.encryptAuth(plaintext).dup;
 writefln("encrypted: %d bytes", encrypted.length);
+
+// Format-deniability ITB masking through outer cipher AES-128-CTR with ~0% overhead over ITB Encrypt / Decrypt (Recommended in every case).
+auto nonce = wrapInPlace(Cipher.aes128Ctr, outerKey, encrypted);
+ubyte[] wire;
+wire ~= nonce;
+wire ~= encrypted;
+writefln("wire: %d bytes", wire.length);
 
 // Streaming alternative — slice plaintext into chunkSize pieces
 // and call enc.encryptAuth() per chunk; each chunk carries its
@@ -328,8 +404,8 @@ writefln("encrypted: %d bytes", encrypted.length);
 
 // Receiver
 
-// Receive encrypted payload + state blob
-// auto encrypted = ...;
+// Receive `wire` payload + state blob
+// auto wire = ...;
 // auto blob = ...;
 
 itb.setMaxWorkers(8);  // limit to 8 CPU cores (default: 0 = all CPUs)
@@ -363,6 +439,9 @@ dec.setLockSoup(1);
 // lockSoup / lockSeed) from the saved blob.
 dec.importState(blob);
 
+// Strip the per-stream nonce, recover the inner ITB ciphertext.
+auto recovered = unwrapInPlace(Cipher.aes128Ctr, outerKey, wire);
+
 // Authenticated decrypt — any single-bit tamper triggers MAC
 // failure (no oracle leak about which byte was tampered). Mismatch
 // surfaces as ITBError(Status.MACFailure), not a corrupted
@@ -370,7 +449,7 @@ dec.importState(blob);
 import std.string : assumeUTF;
 try
 {
-    auto plaintextOut = dec.decryptAuth(encrypted);
+    auto plaintextOut = dec.decryptAuth(recovered);
     writefln("decrypted: %s", assumeUTF(plaintextOut));
 }
 catch (ITBError e)
@@ -455,6 +534,9 @@ auto enc = Encryptor.newMixed(
     1024,             // keyBits
     "hmac-blake3");   // macName
 
+// Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB inner PRF + seeds keep CSPRNG-fresh randomness per call.
+auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+
 // Per-instance configuration applies as for Encryptor(...).
 enc.setNonceBits(512);
 enc.setBarrierFill(4);
@@ -478,14 +560,20 @@ writefln("state blob: %d bytes", blob.length);
 
 auto plaintext = cast(const(ubyte)[]) "mixed-primitive Easy Mode payload";
 
-auto encrypted = enc.encryptAuth(plaintext);
+auto encrypted = enc.encryptAuth(plaintext).dup;
 writefln("encrypted: %d bytes", encrypted.length);
+
+// Format-deniability ITB masking through outer cipher AES-128-CTR with ~0% overhead over ITB Encrypt / Decrypt (Recommended in every case).
+auto nonce = wrapInPlace(Cipher.aes128Ctr, outerKey, encrypted);
+ubyte[] wire;
+wire ~= nonce;
+wire ~= encrypted;
 
 
 // Receiver
 
-// Receive encrypted payload + state blob
-// auto encrypted = ...;
+// Receive `wire` payload + state blob
+// auto wire = ...;
 // auto blob = ...;
 
 // Receiver constructs a matching mixed encryptor — every per-slot
@@ -499,8 +587,9 @@ auto dec = Encryptor.newMixed(
 
 dec.importState(blob);
 
+auto recovered = unwrapInPlace(Cipher.aes128Ctr, outerKey, wire);
 import std.string : assumeUTF;
-auto decrypted = dec.decryptAuth(encrypted);
+auto decrypted = dec.decryptAuth(recovered);
 writefln("decrypted: %s", assumeUTF(decrypted));
 ```
 
@@ -518,9 +607,20 @@ import itb;
 // behave identically to the Single (mode=1) case shown above.
 auto enc = Encryptor("areion512", 2048, "hmac-blake3", 3);
 
+// Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB inner PRF + seeds keep CSPRNG-fresh randomness per call.
+auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+
 auto plaintext = cast(const(ubyte)[]) "Triple Ouroboros payload";
-auto encrypted = enc.encryptAuth(plaintext);
-auto decrypted = enc.decryptAuth(encrypted);
+auto encrypted = enc.encryptAuth(plaintext).dup;
+
+// Format-deniability ITB masking through outer cipher AES-128-CTR with ~0% overhead over ITB Encrypt / Decrypt (Recommended in every case).
+auto nonce = wrapInPlace(Cipher.aes128Ctr, outerKey, encrypted);
+ubyte[] wire;
+wire ~= nonce;
+wire ~= encrypted;
+
+auto recovered = unwrapInPlace(Cipher.aes128Ctr, outerKey, wire);
+auto decrypted = enc.decryptAuth(recovered);
 assert(decrypted == plaintext);
 ```
 
@@ -585,13 +685,23 @@ ns.attachLockSeed(ls);
 ubyte[32] macKey = 0;
 auto mac = MAC("hmac-blake3", macKey[]);
 
+// Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB inner PRF + seeds keep CSPRNG-fresh randomness per call.
+auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+
 auto plaintext = cast(const(ubyte)[]) "any text or binary data - including 0x00 bytes";
 
 // Authenticated encrypt — 32-byte tag is computed across the
 // entire decrypted capacity and embedded inside the RGBWYOPA
 // container, preserving oracle-free deniability.
-auto encrypted = encryptAuth(ns, ds, ss, mac, plaintext);
+auto encrypted = encryptAuth(ns, ds, ss, mac, plaintext).dup;
 writefln("encrypted: %d bytes", encrypted.length);
+
+// Format-deniability ITB masking through outer cipher AES-128-CTR with ~0% overhead over ITB Encrypt / Decrypt (Recommended in every case).
+auto nonce = wrapInPlace(Cipher.aes128Ctr, outerKey, encrypted);
+ubyte[] wire;
+wire ~= nonce;
+wire ~= encrypted;
+writefln("wire: %d bytes", wire.length);
 
 // Cross-process persistence: itb.Blob512 packs every seed's hash
 // key + components, the optional dedicated lockSeed, and the MAC
@@ -620,9 +730,10 @@ writefln("persistence blob: %d bytes", blobBytes.length);
 
 itb.setMaxWorkers(8);   // deployment knob — not serialised by Blob512
 
-// Receive encrypted payload + blobBytes
-// auto encrypted = ...;
+// Receive `wire` payload + blobBytes
+// auto wire = ...;
 // auto blobBytes = ...;
+// auto outerKey = ...;   // agreed out-of-band with the sender
 
 // Blob512.importFromBytes restores per-slot hash keys + components
 // AND applies the captured globals (nonceBits / barrierFill /
@@ -653,9 +764,11 @@ auto macKey2 = restored.getMACKey();
 auto mac2 = MAC(macName2, macKey2);
 
 import std.string : assumeUTF;
+// Strip the per-stream nonce, recover the inner ITB ciphertext.
+auto recovered = unwrapInPlace(Cipher.aes128Ctr, outerKey, wire);
 // Authenticated decrypt — any single-bit tamper triggers MAC
 // failure (no oracle leak about which byte was tampered).
-auto decrypted = decryptAuth(ns2, ds2, ss2, mac2, encrypted);
+auto decrypted = decryptAuth(ns2, ds2, ss2, mac2, recovered);
 writefln("decrypted: %s", assumeUTF(decrypted));
 ```
 
@@ -663,7 +776,7 @@ writefln("decrypted: %s", assumeUTF(decrypted));
 
 `StreamEncryptor` / `StreamDecryptor` (and the seven-seed
 counterparts `StreamEncryptor3` / `StreamDecryptor3`) wrap the
-one-shot encrypt / decrypt API behind a chunked I/O surface. ITB
+Single Message Encrypt / Decrypt API behind a chunked I/O surface. ITB
 ciphertexts cap at ~64 MB plaintext per chunk; streaming larger
 payloads slices the input into chunks at the binding layer,
 encrypts each chunk through the regular FFI path, and concatenates
@@ -685,26 +798,37 @@ auto n = Seed("blake3", 1024);
 auto d = Seed("blake3", 1024);
 auto s = Seed("blake3", 1024);
 
-// Encrypt: writer delegate receives each ITB chunk. close()
-// flushes the trailing partial chunk; the destructor best-effort-
-// flushes on scope exit.
-ubyte[] sink;
+// Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB inner PRF + seeds keep CSPRNG-fresh randomness per call.
+auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+
+// Encrypt: writer delegate receives each ITB chunk; the wrap-stream
+// writer XORs each chunk through one keystream session into `wire`.
+// close() flushes the trailing partial chunk; the destructor
+// best-effort-flushes on scope exit.
+ubyte[] wire;
 {
+    // Format-deniability ITB masking via outer-cipher streaming wrapper (AES-128-CTR) - same ~0% overhead in stream mode (Recommended in every case).
+    auto ww = WrapStreamWriter(Cipher.aes128Ctr, outerKey);
+    scope(exit) ww.close();
+    wire ~= ww.nonce;
     auto enc = StreamEncryptor(n, d, s,
-        (const(ubyte)[] chunk) { sink ~= chunk; },
+        (const(ubyte)[] chunk) { wire ~= ww.update(chunk); },
         1 << 16);
     enc.write(cast(const(ubyte)[]) "chunk one");
     enc.write(cast(const(ubyte)[]) "chunk two");
     enc.close();
 }
-auto ciphertext = sink;
 
-// Decrypt: feed ciphertext bytes (any granularity, partial chunks
-// are buffered until complete); writer delegate receives each
-// decrypted plaintext. close() throws when leftover bytes do not
-// form a complete chunk.
+// Decrypt: strip the leading nonce, unwrap the body, feed the
+// recovered inner ITB ciphertext to StreamDecryptor (which buffers
+// partial chunks until complete). close() throws when leftover
+// bytes do not form a complete chunk.
 ubyte[] psink;
 {
+    size_t nlen = nonceSize(Cipher.aes128Ctr);
+    auto ur = UnwrapStreamReader(Cipher.aes128Ctr, outerKey, wire[0 .. nlen]);
+    scope(exit) ur.close();
+    auto ciphertext = ur.update(wire[nlen .. $]);
     auto dec = StreamDecryptor(n, d, s,
         (const(ubyte)[] pt) { psink ~= pt; });
     dec.feed(ciphertext);
