@@ -192,6 +192,8 @@ int ITB_SetNonceBits(int n);
 int ITB_GetNonceBits();
 int ITB_SetBarrierFill(int n);
 int ITB_GetBarrierFill();
+long ITB_SetMemoryLimit(long limit);
+int ITB_SetGCPercent(int pct);
 
 // ----- Easy Mode encryptor surface --------------------------------------
 

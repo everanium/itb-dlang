@@ -62,7 +62,9 @@ public import itb.registry :
     setNonceBits,
     getNonceBits,
     setBarrierFill,
-    getBarrierFill;
+    getBarrierFill,
+    setMemoryLimit,
+    setGcPercent;
 public import itb.seed : Seed;
 public import itb.mac : MAC;
 public import itb.cipher :
