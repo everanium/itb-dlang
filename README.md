@@ -193,7 +193,7 @@ auto enc = Encryptor("areion512", 1024, "hmac-blake3", 1);
     // session so the on-wire bytes carry no ITB framing.
     auto fin  = File(INNER_PATH, "rb");
     auto fout = File(ENC_PATH,   "wb");
-    // Format-deniability ITB masking via outer-cipher streaming wrapper (AES-128-CTR) - same ~0% overhead in stream mode (Recommended in every case).
+    // Format-deniability ITB masking via outer-cipher wrapper (AES-128-CTR) ~0% overhead (Recommended in every case).
     auto ww = WrapStreamWriter(Cipher.aes128Ctr, outerKey);
     scope(exit) ww.close();
     fout.rawWrite(ww.nonce);
@@ -313,7 +313,7 @@ auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
     // session so the on-wire bytes carry no ITB framing.
     auto fin  = File(INNER_PATH, "rb");
     auto fout = File(ENC_PATH,   "wb");
-    // Format-deniability ITB masking via outer-cipher streaming wrapper (AES-128-CTR) - same ~0% overhead in stream mode (Recommended in every case).
+    // Format-deniability ITB masking via outer-cipher wrapper (AES-128-CTR) ~0% overhead (Recommended in every case).
     auto ww = WrapStreamWriter(Cipher.aes128Ctr, outerKey);
     scope(exit) ww.close();
     fout.rawWrite(ww.nonce);
@@ -418,7 +418,7 @@ auto plaintext = cast(const(ubyte)[]) "any text or binary data - including 0x00 
 auto encrypted = enc.encryptAuth(plaintext).dup;
 writefln("encrypted: %d bytes", encrypted.length);
 
-// Format-deniability ITB masking through outer cipher AES-128-CTR with ~0% overhead over ITB Encrypt / Decrypt (Recommended in every case).
+// Format-deniability ITB masking via outer-cipher wrapper (AES-128-CTR) ~0% overhead (Recommended in every case).
 auto nonce = wrapInPlace(Cipher.aes128Ctr, outerKey, encrypted);
 ubyte[] wire;
 wire ~= nonce;
@@ -605,7 +605,7 @@ auto plaintext = cast(const(ubyte)[]) "mixed-primitive Easy Mode payload";
 auto encrypted = enc.encryptAuth(plaintext).dup;
 writefln("encrypted: %d bytes", encrypted.length);
 
-// Format-deniability ITB masking through outer cipher AES-128-CTR with ~0% overhead over ITB Encrypt / Decrypt (Recommended in every case).
+// Format-deniability ITB masking via outer-cipher wrapper (AES-128-CTR) ~0% overhead (Recommended in every case).
 auto nonce = wrapInPlace(Cipher.aes128Ctr, outerKey, encrypted);
 ubyte[] wire;
 wire ~= nonce;
@@ -655,7 +655,7 @@ auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
 auto plaintext = cast(const(ubyte)[]) "Triple Ouroboros payload";
 auto encrypted = enc.encryptAuth(plaintext).dup;
 
-// Format-deniability ITB masking through outer cipher AES-128-CTR with ~0% overhead over ITB Encrypt / Decrypt (Recommended in every case).
+// Format-deniability ITB masking via outer-cipher wrapper (AES-128-CTR) ~0% overhead (Recommended in every case).
 auto nonce = wrapInPlace(Cipher.aes128Ctr, outerKey, encrypted);
 ubyte[] wire;
 wire ~= nonce;
@@ -738,7 +738,7 @@ auto plaintext = cast(const(ubyte)[]) "any text or binary data - including 0x00 
 auto encrypted = encryptAuth(ns, ds, ss, mac, plaintext).dup;
 writefln("encrypted: %d bytes", encrypted.length);
 
-// Format-deniability ITB masking through outer cipher AES-128-CTR with ~0% overhead over ITB Encrypt / Decrypt (Recommended in every case).
+// Format-deniability ITB masking via outer-cipher wrapper (AES-128-CTR) ~0% overhead (Recommended in every case).
 auto nonce = wrapInPlace(Cipher.aes128Ctr, outerKey, encrypted);
 ubyte[] wire;
 wire ~= nonce;
@@ -849,7 +849,7 @@ auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
 // best-effort-flushes on scope exit.
 ubyte[] wire;
 {
-    // Format-deniability ITB masking via outer-cipher streaming wrapper (AES-128-CTR) - same ~0% overhead in stream mode (Recommended in every case).
+    // Format-deniability ITB masking via outer-cipher wrapper (AES-128-CTR) ~0% overhead (Recommended in every case).
     auto ww = WrapStreamWriter(Cipher.aes128Ctr, outerKey);
     scope(exit) ww.close();
     wire ~= ww.nonce;
