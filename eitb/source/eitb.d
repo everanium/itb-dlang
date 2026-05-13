@@ -5,7 +5,7 @@
 // Outer CTR mode cipher hides ITB nonce, WxH and 32-byte streamID
 // prefix under AEAD mode.
 //
-// Mirrors github.com/everanium/itb/cmd/eitb/main.go for the D
+// Mirrors github.com/everanium/itb/tools/eitb/main.go for the D
 // binding. Each example produces a non-trivial random plaintext,
 // wraps the ITB ciphertext under the chosen outer cipher, hands
 // the wrapped bytes to a "receiver" path that unwraps and decrypts,
