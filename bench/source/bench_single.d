@@ -256,10 +256,9 @@ private enum string STREAM_PRIMITIVE = "areion512";
 private enum size_t STREAM_TOTAL_BYTES = 64UL << 20;
 private enum size_t STREAM_CHUNK_BYTES = 16UL << 20;
 
-// Fixed 32-byte MAC key — matches the 32-byte hmac-blake3 key length
-// codified in .NEXTBIND.md / .MACSTREAM.md. Value contents are
-// immaterial for throughput measurement; the MAC executes in
-// O(MAC-key-length) per absorb regardless of byte distribution.
+// Fixed 32-byte MAC key matches the 32-byte hmac-blake3 key length
+// codified. Value contents are immaterial for throughput measurement;
+//the MAC executes in O(MAC-key-length) per absorb regardless of byte distribution.
 private static immutable ubyte[32] STREAM_MAC_KEY = [
     0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
     0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00,
@@ -270,8 +269,8 @@ private static immutable ubyte[32] STREAM_MAC_KEY = [
 // Heap-resident Low-Level Single Ouroboros bench state. Holds three
 // non-copyable Seeds plus one non-copyable MAC behind a stable
 // pointer so closures can reference the handles without moving the
-// underlying structs. Mirrors the `EncBox` pattern documented in
-// .NEXTBIND.md §11.n.2 (D struct + closure non-copyable workaround).
+// underlying structs. Mirrors the `EncBox` pattern (D struct + closure
+// non-copyable workaround).
 private struct StreamLowSingleBox
 {
     Seed noise;

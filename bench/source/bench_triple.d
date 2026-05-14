@@ -225,9 +225,8 @@ private enum string STREAM_PRIMITIVE = "areion512";
 private enum size_t STREAM_TOTAL_BYTES = 64UL << 20;
 private enum size_t STREAM_CHUNK_BYTES = 16UL << 20;
 
-// Fixed 32-byte MAC key — matches the 32-byte hmac-blake3 key length
-// codified in .NEXTBIND.md / .MACSTREAM.md. Value contents are
-// immaterial for throughput measurement.
+// Fixed 32-byte MAC key matches the 32-byte hmac-blake3 key length
+// codified. Value contents are immaterial for throughput measurement.
 private static immutable ubyte[32] STREAM_MAC_KEY = [
     0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
     0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00,

@@ -857,7 +857,7 @@ private ubyte[] _emitChunkAuthSingle(
     int ff = finalFlag ? 1 : 0;
     size_t cap = _streamSaturatingExpansion(plaintext.length);
     // Reuse the per-stream output cache instead of a fresh GC alloc
-    // per chunk. Same Bonus 1 pattern as the Easy Mode dispatchers.
+    // per chunk. Same pattern as the Easy Mode dispatchers.
     _ensureStreamCache(outCache, cap);
     size_t written = 0;
     int rc = fn(

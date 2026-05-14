@@ -1129,7 +1129,7 @@ struct Encryptor
         int ff = 0;
         size_t cap = _saturatingExpansion(ciphertext.length);
         // Reuse the per-encryptor output cache (grow-on-demand +
-        // wipe-on-grow), matching the Bonus 1 cache wiring in the
+        // wipe-on-grow), matching the cache wiring in the
         // encrypt-side dispatcher above.
         _ensureCache(cap);
         size_t written = 0;
