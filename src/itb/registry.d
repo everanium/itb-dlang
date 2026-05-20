@@ -17,7 +17,7 @@ import itb.errors : check, ITBError, readString;
 import itb.status : Status;
 import itb.sys;
 
-/// Returns the libitb library version string (e.g. `"0.5.4"`).
+/// Returns the libitb library version string (e.g. `"0.1.1"`).
 string version_() @trusted
 {
     return readString((char* outBuf, size_t cap, size_t* outLen) =>
