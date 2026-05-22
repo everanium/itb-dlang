@@ -46,7 +46,7 @@ The D binding exposes Streaming AEAD as a delegate-driven reader / writer pair (
 The SipHash-CTR construction:
 - 16-byte SipHash key = wrapper key.
 - 16-byte nonce split into `(nonce_hi, nonce_lo)` 64-bit halves.
-- Each keystream block: `siphash.Hash(key, nonce_hi || (nonce_lo XOR counter_LE))` — 8-byte output, XORed with plaintext.
+- Each keystream block: `siphash.Hash128(key, nonce_hi || (nonce_lo XOR counter_LE))` — 16-byte output, XORed with plaintext.
 - Counter increments per block; nonce stays fixed for the stream.
 
 ## Quick Start
