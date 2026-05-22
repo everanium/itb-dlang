@@ -1,6 +1,6 @@
 {
     "name": "itb",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "ITB encryption - D language binding over libitb's C ABI.",
     "license": "MIT",
     "authors": ["ITB project"],
