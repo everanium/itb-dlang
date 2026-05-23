@@ -75,7 +75,7 @@ import itb.sys;
 /// Outer keystream cipher selected per wrap session.
 ///
 /// Each variant maps to one of the three cipher-name strings the
-/// underlying FFI accepts: `"aes"` / `"chacha"` / `"siphash"`. The
+/// underlying FFI accepts: `"aescmac"` / `"chacha20"` / `"siphash24"`. The
 /// Go-side constants are `wrapper.CipherAES128CTR` /
 /// `wrapper.CipherChaCha20` / `wrapper.CipherSipHash24`.
 enum Cipher
@@ -107,22 +107,22 @@ string ffiName(Cipher cipher) @safe pure
 {
     final switch (cipher)
     {
-        case Cipher.aes128Ctr: return "aes";
-        case Cipher.chaCha20:  return "chacha";
-        case Cipher.sipHash24: return "siphash";
+        case Cipher.aes128Ctr: return "aescmac";
+        case Cipher.chaCha20:  return "chacha20";
+        case Cipher.sipHash24: return "siphash24";
     }
 }
 
 /// Parses a cipher name string into a `Cipher` value. Accepts only
-/// the three canonical forms ("aes" / "chacha" / "siphash"); any
+/// the three canonical forms ("aescmac" / "chacha20" / "siphash24"); any
 /// other value raises `WrapperInvalidCipherError`.
 Cipher cipherFromName(string name) @safe pure
 {
     switch (name)
     {
-        case "aes":     return Cipher.aes128Ctr;
-        case "chacha":  return Cipher.chaCha20;
-        case "siphash": return Cipher.sipHash24;
+        case "aescmac":   return Cipher.aes128Ctr;
+        case "chacha20":  return Cipher.chaCha20;
+        case "siphash24": return Cipher.sipHash24;
         default:
             throw new WrapperInvalidCipherError(name);
     }
@@ -148,8 +148,8 @@ class WrapperError : ITBError
     }
 }
 
-/// Raised when a cipher name string is not one of "aes" / "chacha" /
-/// "siphash". Carries `Status.BadInput`.
+/// Raised when a cipher name string is not one of "aescmac" / "chacha20" /
+/// "siphash24". Carries `Status.BadInput`.
 class WrapperInvalidCipherError : WrapperError
 {
     /// The unparseable cipher name.
@@ -262,6 +262,38 @@ ubyte[] wrapperGenerateKey(Cipher cipher) @trusted
         off += take;
     }
     return key;
+}
+
+/// Deterministically derives the outer cipher key for `cipher` from a
+/// caller-supplied `master` secret (e.g. an ML-KEM shared secret). The
+/// result is a deterministic function of `(cipher, master)`, so both
+/// endpoints derive the same key from a shared master. `master` must
+/// be at least `keySize(cipher)` bytes; returns the derived key of
+/// length `keySize(cipher)` (16 / 32 / 16 bytes for AES-128-CTR /
+/// ChaCha20 / SipHash-2-4). Throws `WrapperInvalidKeyError` when
+/// `master` is shorter than the cipher's key size.
+ubyte[] wrapperDeriveKey(Cipher cipher, const(ubyte)[] master) @trusted
+{
+    size_t klen = keySize(cipher);
+    if (master.length < klen)
+    {
+        import std.conv : to;
+        throw new WrapperInvalidKeyError(
+            Status.BadInput,
+            "wrapper " ~ ffiName(cipher) ~ ": master must be at least "
+            ~ klen.to!string ~ " bytes, got " ~ master.length.to!string);
+    }
+    auto name = ffiName(cipher);
+    const(char)* cname = toStringz(name);
+    auto outBuf = new ubyte[klen];
+    size_t outLen = 0;
+    void* masterPtr = master.length == 0 ? null : cast(void*) master.ptr;
+    int rc = ITB_WrapperDeriveKey(
+        cast(char*) cname,
+        masterPtr, master.length,
+        cast(void*) outBuf.ptr, klen, &outLen);
+    check(rc);
+    return outBuf[0 .. outLen];
 }
 
 // --------------------------------------------------------------------

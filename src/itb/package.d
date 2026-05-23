@@ -114,6 +114,7 @@ public import itb.wrapper :
     keySize,
     nonceSize,
     wrapperGenerateKey,
+    wrapperDeriveKey,
     wrap,
     unwrap,
     wrapInPlace,

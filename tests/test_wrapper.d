@@ -33,13 +33,13 @@ ubyte[] pseudoBlob(size_t n)
 
 void testCipherEnumIntrospection()
 {
-    assert(ffiName(Cipher.aes128Ctr) == "aes");
-    assert(ffiName(Cipher.chaCha20)  == "chacha");
-    assert(ffiName(Cipher.sipHash24) == "siphash");
+    assert(ffiName(Cipher.aes128Ctr) == "aescmac");
+    assert(ffiName(Cipher.chaCha20)  == "chacha20");
+    assert(ffiName(Cipher.sipHash24) == "siphash24");
 
-    assert(cipherFromName("aes")     == Cipher.aes128Ctr);
-    assert(cipherFromName("chacha")  == Cipher.chaCha20);
-    assert(cipherFromName("siphash") == Cipher.sipHash24);
+    assert(cipherFromName("aescmac")   == Cipher.aes128Ctr);
+    assert(cipherFromName("chacha20")  == Cipher.chaCha20);
+    assert(cipherFromName("siphash24") == Cipher.sipHash24);
 
     assert(CIPHER_NAMES.length == 3);
     assert(CIPHER_NAMES[0] == Cipher.aes128Ctr);
@@ -77,6 +77,37 @@ void testGenerateKeyLength()
         auto key2 = wrapperGenerateKey(c);
         assert(key != key2,
             format("two consecutive generateKey(%s) draws must differ", ffiName(c)));
+    }
+}
+
+void testDeriveKeyDeterministicAndRoundtrips()
+{
+    import std.random : uniform, Random, unpredictableSeed;
+
+    // 32 random bytes as the master secret (stand-in for an ML-KEM
+    // shared secret; the binding ships no KEM).
+    auto rnd = Random(unpredictableSeed);
+    auto master = new ubyte[32];
+    foreach (i; 0 .. master.length)
+        master[i] = cast(ubyte) uniform(0, 256, rnd);
+
+    auto blob = pseudoBlob(1024);
+    foreach (c; ALL_CIPHERS)
+    {
+        auto key1 = wrapperDeriveKey(c, master);
+        assert(key1.length == keySize(c),
+            format("deriveKey(%s).length must equal keySize", ffiName(c)));
+
+        // Determinism: same (cipher, master) yields the same key.
+        auto key2 = wrapperDeriveKey(c, master);
+        assert(key1 == key2,
+            format("deriveKey(%s) must be deterministic for a fixed master", ffiName(c)));
+
+        // The derived key round-trips through wrap / unwrap.
+        auto wire = wrap(c, key1, blob);
+        auto recovered = unwrap(c, key1, wire);
+        assert(recovered == blob,
+            format("derived key for %s must round-trip through wrap/unwrap", ffiName(c)));
     }
 }
 
@@ -318,6 +349,7 @@ void main()
     testCipherEnumIntrospection();
     testKeyAndNonceSizes();
     testGenerateKeyLength();
+    testDeriveKeyDeterministicAndRoundtrips();
     testSingleShotRoundtrip();
     testSingleShotEmptyBlob();
     testInPlaceWrapRoundtrip();

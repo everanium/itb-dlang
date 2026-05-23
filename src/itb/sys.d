@@ -401,6 +401,11 @@ int ITB_Easy_DecryptStreamAuth(
 int ITB_WrapperKeySize(char* cipherName, size_t* outSize);
 int ITB_WrapperNonceSize(char* cipherName, size_t* outSize);
 
+int ITB_WrapperDeriveKey(
+    char* cipherName,
+    void* master, size_t masterLen,
+    void* outBuf, size_t outCap, size_t* outLen);
+
 int ITB_Wrap(
     char* cipherName,
     void* key, size_t keyLen,

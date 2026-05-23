@@ -184,6 +184,7 @@ enum CHUNK_SIZE = 16UL * 1024 * 1024;
 
 // Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB Inner seeds + PRF key keep as CSPRNG derived.
 auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+// auto outerKey = wrapperDeriveKey(Cipher.aes128Ctr, master);
 
 auto enc = Encryptor("areion512", 1024, "hmac-blake3", 1);
 {
@@ -304,6 +305,7 @@ auto mac = MAC("hmac-blake3", macKey[]);
 
 // Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB Inner seeds + PRF key keep as CSPRNG derived.
 auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+// auto outerKey = wrapperDeriveKey(Cipher.aes128Ctr, master);
 
 {
     // Stage 1: encrypt plaintext into a buffered inner-transcript file.
@@ -389,6 +391,7 @@ auto enc = Encryptor("areion512", 2048, "hmac-blake3", 1);
 
 // Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB Inner seeds + PRF key keep as CSPRNG derived.
 auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+// auto outerKey = wrapperDeriveKey(Cipher.aes128Ctr, master);
 
 enc.setNonceBits(512);    // 512-bit nonce (default: 128-bit)
 enc.setBarrierFill(4);    // CSPRNG fill margin (default: 1, valid: 1, 2, 4, 8, 16, 32)
@@ -584,6 +587,7 @@ auto enc = Encryptor.newMixed(
 
 // Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB Inner seeds + PRF key keep as CSPRNG derived.
 auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+// auto outerKey = wrapperDeriveKey(Cipher.aes128Ctr, master);
 
 // Per-instance configuration applies as for Encryptor(...).
 enc.setNonceBits(512);
@@ -657,6 +661,7 @@ auto enc = Encryptor("areion512", 2048, "hmac-blake3", 3);
 
 // Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB Inner seeds + PRF key keep as CSPRNG derived.
 auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+// auto outerKey = wrapperDeriveKey(Cipher.aes128Ctr, master);
 
 auto plaintext = cast(const(ubyte)[]) "Triple Ouroboros payload";
 auto encrypted = enc.encryptAuth(plaintext).dup;
@@ -735,6 +740,7 @@ auto mac = MAC("hmac-blake3", macKey[]);
 
 // Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB Inner seeds + PRF key keep as CSPRNG derived.
 auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+// auto outerKey = wrapperDeriveKey(Cipher.aes128Ctr, master);
 
 auto plaintext = cast(const(ubyte)[]) "any text or binary data - including 0x00 bytes";
 
@@ -848,6 +854,7 @@ auto s = Seed("blake3", 1024);
 
 // Outer cipher key - preferred surface for HKDF / ML-KEM / key-rotation policy in user-side application. ITB Inner seeds + PRF key keep as CSPRNG derived.
 auto outerKey = wrapperGenerateKey(Cipher.aes128Ctr);
+// auto outerKey = wrapperDeriveKey(Cipher.aes128Ctr, master);
 
 // Encrypt: writer delegate receives each ITB chunk; the wrap-stream
 // writer XORs each chunk through one keystream session into `wire`.
