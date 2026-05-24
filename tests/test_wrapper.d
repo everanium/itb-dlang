@@ -1,8 +1,10 @@
 // Phase wrapper-rollout: confirms the format-deniability `wrapper`
-// module round-trips ITB ciphertext under each of the three outer
-// keystream ciphers (AES-128-CTR / ChaCha20 / SipHash-2-4 in CTR
-// mode), exercising Single Message wrap/unwrap, in-place mutation,
-// and streaming wrap/unwrap entry points.
+// module round-trips ITB ciphertext under each of the nine PRF-grade
+// outer keystream ciphers (Areion-SoEM-256 / Areion-SoEM-512 /
+// SipHash-2-4 in CTR mode / AES-128-CTR / BLAKE2b-256 / BLAKE2b-512 /
+// BLAKE2s / BLAKE3 / ChaCha20 (RFC8439)), exercising Single Message
+// wrap/unwrap, in-place mutation, and streaming wrap/unwrap entry
+// points.
 //
 // Mirrors bindings/python/tests/test_wrapper.py and
 // bindings/rust/tests/test_wrapper.rs at coverage parity.
@@ -18,9 +20,15 @@ import std.stdio : writeln;
 import itb;
 
 immutable Cipher[] ALL_CIPHERS = [
-    Cipher.aes128Ctr,
-    Cipher.chaCha20,
+    Cipher.areion256,
+    Cipher.areion512,
     Cipher.sipHash24,
+    Cipher.aes128Ctr,
+    Cipher.blake2b256,
+    Cipher.blake2b512,
+    Cipher.blake2s,
+    Cipher.blake3,
+    Cipher.chaCha20,
 ];
 
 ubyte[] pseudoBlob(size_t n)
@@ -33,18 +41,36 @@ ubyte[] pseudoBlob(size_t n)
 
 void testCipherEnumIntrospection()
 {
-    assert(ffiName(Cipher.aes128Ctr) == "aescmac");
-    assert(ffiName(Cipher.chaCha20)  == "chacha20");
-    assert(ffiName(Cipher.sipHash24) == "siphash24");
+    assert(ffiName(Cipher.areion256)  == "areion256");
+    assert(ffiName(Cipher.areion512)  == "areion512");
+    assert(ffiName(Cipher.sipHash24)  == "siphash24");
+    assert(ffiName(Cipher.aes128Ctr)  == "aescmac");
+    assert(ffiName(Cipher.blake2b256) == "blake2b256");
+    assert(ffiName(Cipher.blake2b512) == "blake2b512");
+    assert(ffiName(Cipher.blake2s)    == "blake2s");
+    assert(ffiName(Cipher.blake3)     == "blake3");
+    assert(ffiName(Cipher.chaCha20)   == "chacha20");
 
-    assert(cipherFromName("aescmac")   == Cipher.aes128Ctr);
-    assert(cipherFromName("chacha20")  == Cipher.chaCha20);
-    assert(cipherFromName("siphash24") == Cipher.sipHash24);
+    assert(cipherFromName("areion256")  == Cipher.areion256);
+    assert(cipherFromName("areion512")  == Cipher.areion512);
+    assert(cipherFromName("siphash24")  == Cipher.sipHash24);
+    assert(cipherFromName("aescmac")    == Cipher.aes128Ctr);
+    assert(cipherFromName("blake2b256") == Cipher.blake2b256);
+    assert(cipherFromName("blake2b512") == Cipher.blake2b512);
+    assert(cipherFromName("blake2s")    == Cipher.blake2s);
+    assert(cipherFromName("blake3")     == Cipher.blake3);
+    assert(cipherFromName("chacha20")   == Cipher.chaCha20);
 
-    assert(CIPHER_NAMES.length == 3);
-    assert(CIPHER_NAMES[0] == Cipher.aes128Ctr);
-    assert(CIPHER_NAMES[1] == Cipher.chaCha20);
+    assert(CIPHER_NAMES.length == 9);
+    assert(CIPHER_NAMES[0] == Cipher.areion256);
+    assert(CIPHER_NAMES[1] == Cipher.areion512);
     assert(CIPHER_NAMES[2] == Cipher.sipHash24);
+    assert(CIPHER_NAMES[3] == Cipher.aes128Ctr);
+    assert(CIPHER_NAMES[4] == Cipher.blake2b256);
+    assert(CIPHER_NAMES[5] == Cipher.blake2b512);
+    assert(CIPHER_NAMES[6] == Cipher.blake2s);
+    assert(CIPHER_NAMES[7] == Cipher.blake3);
+    assert(CIPHER_NAMES[8] == Cipher.chaCha20);
 
     auto err = collectException!WrapperInvalidCipherError(cipherFromName("nope"));
     assert(err !is null, "unknown cipher name must throw");
@@ -55,14 +81,28 @@ void testCipherEnumIntrospection()
 void testKeyAndNonceSizes()
 {
     // Sizes must match the Go-side wrapper.KeySize / NonceSize for
-    // each canonical cipher: aes 16/16, chacha 32/12, siphash 16/16.
-    assert(keySize(Cipher.aes128Ctr) == 16);
-    assert(keySize(Cipher.chaCha20)  == 32);
-    assert(keySize(Cipher.sipHash24) == 16);
+    // each canonical cipher: areion256 32/16, areion512 64/16,
+    // siphash 16/16, aes 16/16, blake2b256 32/16, blake2b512 32/16,
+    // blake2s 32/16, blake3 32/16, chacha 32/12.
+    assert(keySize(Cipher.areion256)  == 32);
+    assert(keySize(Cipher.areion512)  == 64);
+    assert(keySize(Cipher.sipHash24)  == 16);
+    assert(keySize(Cipher.aes128Ctr)  == 16);
+    assert(keySize(Cipher.blake2b256) == 32);
+    assert(keySize(Cipher.blake2b512) == 32);
+    assert(keySize(Cipher.blake2s)    == 32);
+    assert(keySize(Cipher.blake3)     == 32);
+    assert(keySize(Cipher.chaCha20)   == 32);
 
-    assert(nonceSize(Cipher.aes128Ctr) == 16);
-    assert(nonceSize(Cipher.chaCha20)  == 12);
-    assert(nonceSize(Cipher.sipHash24) == 16);
+    assert(nonceSize(Cipher.areion256)  == 16);
+    assert(nonceSize(Cipher.areion512)  == 16);
+    assert(nonceSize(Cipher.sipHash24)  == 16);
+    assert(nonceSize(Cipher.aes128Ctr)  == 16);
+    assert(nonceSize(Cipher.blake2b256) == 16);
+    assert(nonceSize(Cipher.blake2b512) == 16);
+    assert(nonceSize(Cipher.blake2s)    == 16);
+    assert(nonceSize(Cipher.blake3)     == 16);
+    assert(nonceSize(Cipher.chaCha20)   == 12);
 }
 
 void testGenerateKeyLength()
@@ -85,7 +125,10 @@ void testDeriveKeyDeterministicAndRoundtrips()
     import std.random : uniform, Random, unpredictableSeed;
 
     // 32 random bytes as the master secret (stand-in for an ML-KEM
-    // shared secret; the binding ships no KEM).
+    // shared secret; the binding ships no KEM). 32 bytes is the
+    // wrapper's uniform security floor; the kdf layer truncates /
+    // stretches it to each cipher's key size, so a single 32-byte
+    // master keys every outer cipher.
     auto rnd = Random(unpredictableSeed);
     auto master = new ubyte[32];
     foreach (i; 0 .. master.length)
@@ -108,6 +151,28 @@ void testDeriveKeyDeterministicAndRoundtrips()
         auto recovered = unwrap(c, key1, wire);
         assert(recovered == blob,
             format("derived key for %s must round-trip through wrap/unwrap", ffiName(c)));
+    }
+}
+
+void testDeriveKeyMasterFloorBoundary()
+{
+    // The wrapper enforces a uniform 32-byte master floor for every
+    // cipher (not the per-cipher key size): 31 bytes is rejected, 32
+    // bytes is accepted. The C ABI surfaces a too-short master as
+    // Status.BadInput, mapped to the base ITBError.
+    foreach (c; ALL_CIPHERS)
+    {
+        auto shortMaster = new ubyte[31];
+        auto err = collectException!ITBError(wrapperDeriveKey(c, shortMaster));
+        assert(err !is null,
+            format("deriveKey(%s): 31-byte master must be rejected", ffiName(c)));
+        assert(err.statusCode == Status.BadInput,
+            format("deriveKey(%s): short master must carry Status.BadInput", ffiName(c)));
+
+        auto floorMaster = new ubyte[32];
+        auto key = wrapperDeriveKey(c, floorMaster);
+        assert(key.length == keySize(c),
+            format("deriveKey(%s): 32-byte master must be accepted", ffiName(c)));
     }
 }
 
@@ -350,6 +415,7 @@ void main()
     testKeyAndNonceSizes();
     testGenerateKeyLength();
     testDeriveKeyDeterministicAndRoundtrips();
+    testDeriveKeyMasterFloorBoundary();
     testSingleShotRoundtrip();
     testSingleShotEmptyBlob();
     testInPlaceWrapRoundtrip();

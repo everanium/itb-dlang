@@ -3,8 +3,10 @@
 /// D-idiomatic surface over the 12 `ITB_Wrap*` / `ITB_Unwrap*` /
 /// `ITB_WrapStream*` / `ITB_UnwrapStream*` / `ITB_WrapperKeySize` /
 /// `ITB_WrapperNonceSize` exports in `cmd/cshared/main.go`. Wraps an
-/// ITB ciphertext under one of three outer keystream ciphers
-/// (AES-128-CTR / ChaCha20 / SipHash-2-4 in CTR mode) so the on-wire
+/// ITB ciphertext under one of nine PRF-grade outer keystream ciphers
+/// (Areion-SoEM-256 / Areion-SoEM-512 / SipHash-2-4 in CTR mode /
+/// AES-128-CTR / BLAKE2b-256 / BLAKE2b-512 / BLAKE2s / BLAKE3 /
+/// ChaCha20 (RFC8439)) so the on-wire
 /// bytes carry no ITB-specific format pattern (W / H / container
 /// layout for Non-AEAD; 32-byte streamID prefix + per-chunk metadata
 /// for Streaming AEAD). The wrap exists for format-deniability ONLY —
@@ -46,12 +48,16 @@
 /// wireBuf ~= ww.update(cast(const(ubyte)[]) "chunk-2");
 /// ---
 ///
-/// The `Cipher` enum selects one of three outer ciphers: `aes128Ctr`
-/// (AES-128-CTR — 16-byte key + 16-byte nonce, AES-NI accelerated on
-/// the libitb side), `chaCha20` (ChaCha20 (RFC8439) — 32-byte key +
-/// 12-byte nonce), or `sipHash24` (SipHash-2-4 in CTR mode — 16-byte
-/// key + 16-byte nonce, custom CTR construction over the SipHash-2-4
-/// PRF).
+/// The `Cipher` enum selects one of nine PRF-grade outer ciphers:
+/// `areion256` (Areion-SoEM-256 in CTR mode), `areion512`
+/// (Areion-SoEM-512 in CTR mode), `sipHash24` (SipHash-2-4 in CTR mode
+/// — custom CTR construction over the SipHash-2-4 PRF), `aes128Ctr`
+/// (AES-128-CTR — AES-NI accelerated on the libitb side), `blake2b256`
+/// (BLAKE2b-256 in CTR mode), `blake2b512` (BLAKE2b-512 in CTR mode),
+/// `blake2s` (BLAKE2s in CTR mode), `blake3` (BLAKE3 in CTR mode), or
+/// `chaCha20` (ChaCha20 (RFC8439)). Each maps to one ITB registry
+/// primitive; key and nonce sizes follow the underlying primitive —
+/// query them via `keySize` / `nonceSize`.
 ///
 /// Threading. Each `WrapStreamWriter` / `UnwrapStreamReader` owns
 /// one libitb stream handle and is single-feeder by construction.
@@ -74,10 +80,15 @@ import itb.sys;
 
 /// Outer keystream cipher selected per wrap session.
 ///
-/// Each variant maps to one of the three cipher-name strings the
-/// underlying FFI accepts: `"aescmac"` / `"chacha20"` / `"siphash24"`. The
-/// Go-side constants are `wrapper.CipherAES128CTR` /
-/// `wrapper.CipherChaCha20` / `wrapper.CipherSipHash24`.
+/// Each variant maps to one of the nine PRF-grade cipher-name strings
+/// the underlying FFI accepts: `"areion256"` / `"areion512"` /
+/// `"siphash24"` / `"aescmac"` / `"blake2b256"` / `"blake2b512"` /
+/// `"blake2s"` / `"blake3"` / `"chacha20"`. The Go-side constants are
+/// `wrapper.CipherAreion256` / `wrapper.CipherAreion512` /
+/// `wrapper.CipherSipHash24` / `wrapper.CipherAES128CTR` /
+/// `wrapper.CipherBLAKE2b256` / `wrapper.CipherBLAKE2b512` /
+/// `wrapper.CipherBLAKE2s` / `wrapper.CipherBLAKE3` /
+/// `wrapper.CipherChaCha20`.
 enum Cipher
 {
     /// AES-128-CTR — 16-byte key, 16-byte nonce. Hardware-accelerated
@@ -92,14 +103,38 @@ enum Cipher
     /// CTR construction over the SipHash-2-4 PRF; sound under the
     /// standard PRF assumption that justifies AES-CTR.
     sipHash24,
+    /// Areion-SoEM-256 in CTR mode — 32-byte key, 16-byte nonce.
+    /// Keyed Areion-SoEM-256 PRF; AES-round-based, AES-NI accelerated.
+    areion256,
+    /// Areion-SoEM-512 in CTR mode — 64-byte key, 16-byte nonce.
+    /// Keyed Areion-SoEM-512 PRF; AES-round-based, AES-NI accelerated.
+    areion512,
+    /// BLAKE2b-256 in CTR mode — 32-byte key, 16-byte nonce.
+    /// Keyed BLAKE2b-256 PRF.
+    blake2b256,
+    /// BLAKE2b-512 in CTR mode — 32-byte key, 16-byte nonce.
+    /// Keyed BLAKE2b-512 PRF.
+    blake2b512,
+    /// BLAKE2s in CTR mode — 32-byte key, 16-byte nonce.
+    /// Keyed BLAKE2s-256 PRF.
+    blake2s,
+    /// BLAKE3 in CTR mode — 32-byte key, 16-byte nonce.
+    /// Keyed BLAKE3 PRF.
+    blake3,
 }
 
 /// Canonical iteration order of supported outer ciphers. Matches the
 /// Go-side `wrapper.CipherNames` slice exactly.
 immutable Cipher[] CIPHER_NAMES = [
-    Cipher.aes128Ctr,
-    Cipher.chaCha20,
+    Cipher.areion256,
+    Cipher.areion512,
     Cipher.sipHash24,
+    Cipher.aes128Ctr,
+    Cipher.blake2b256,
+    Cipher.blake2b512,
+    Cipher.blake2s,
+    Cipher.blake3,
+    Cipher.chaCha20,
 ];
 
 /// Returns the FFI cipher-name string used by every entry point.
@@ -107,22 +142,35 @@ string ffiName(Cipher cipher) @safe pure
 {
     final switch (cipher)
     {
-        case Cipher.aes128Ctr: return "aescmac";
-        case Cipher.chaCha20:  return "chacha20";
-        case Cipher.sipHash24: return "siphash24";
+        case Cipher.aes128Ctr:  return "aescmac";
+        case Cipher.chaCha20:   return "chacha20";
+        case Cipher.sipHash24:  return "siphash24";
+        case Cipher.areion256:  return "areion256";
+        case Cipher.areion512:  return "areion512";
+        case Cipher.blake2b256: return "blake2b256";
+        case Cipher.blake2b512: return "blake2b512";
+        case Cipher.blake2s:    return "blake2s";
+        case Cipher.blake3:     return "blake3";
     }
 }
 
 /// Parses a cipher name string into a `Cipher` value. Accepts only
-/// the three canonical forms ("aescmac" / "chacha20" / "siphash24"); any
-/// other value raises `WrapperInvalidCipherError`.
+/// the nine canonical forms ("areion256" / "areion512" / "siphash24" /
+/// "aescmac" / "blake2b256" / "blake2b512" / "blake2s" / "blake3" /
+/// "chacha20"); any other value raises `WrapperInvalidCipherError`.
 Cipher cipherFromName(string name) @safe pure
 {
     switch (name)
     {
-        case "aescmac":   return Cipher.aes128Ctr;
-        case "chacha20":  return Cipher.chaCha20;
-        case "siphash24": return Cipher.sipHash24;
+        case "aescmac":    return Cipher.aes128Ctr;
+        case "chacha20":   return Cipher.chaCha20;
+        case "siphash24":  return Cipher.sipHash24;
+        case "areion256":  return Cipher.areion256;
+        case "areion512":  return Cipher.areion512;
+        case "blake2b256": return Cipher.blake2b256;
+        case "blake2b512": return Cipher.blake2b512;
+        case "blake2s":    return Cipher.blake2s;
+        case "blake3":     return Cipher.blake3;
         default:
             throw new WrapperInvalidCipherError(name);
     }
@@ -148,8 +196,10 @@ class WrapperError : ITBError
     }
 }
 
-/// Raised when a cipher name string is not one of "aescmac" / "chacha20" /
-/// "siphash24". Carries `Status.BadInput`.
+/// Raised when a cipher name string is not one of the nine PRF-grade
+/// outer cipher names ("areion256" / "areion512" / "siphash24" /
+/// "aescmac" / "blake2b256" / "blake2b512" / "blake2s" / "blake3" /
+/// "chacha20"). Carries `Status.BadInput`.
 class WrapperInvalidCipherError : WrapperError
 {
     /// The unparseable cipher name.
@@ -268,21 +318,16 @@ ubyte[] wrapperGenerateKey(Cipher cipher) @trusted
 /// caller-supplied `master` secret (e.g. an ML-KEM shared secret). The
 /// result is a deterministic function of `(cipher, master)`, so both
 /// endpoints derive the same key from a shared master. `master` must
-/// be at least `keySize(cipher)` bytes; returns the derived key of
-/// length `keySize(cipher)` (16 / 32 / 16 bytes for AES-128-CTR /
-/// ChaCha20 / SipHash-2-4). Throws `WrapperInvalidKeyError` when
-/// `master` is shorter than the cipher's key size.
+/// be at least 32 bytes (the wrapper's uniform security floor — a
+/// 256-bit master matching an ML-KEM shared secret). The kdf layer
+/// truncates / stretches that master to the per-cipher key length
+/// internally, so a single 32-byte master keys every outer cipher.
+/// Returns the derived key of length `keySize(cipher)` (16 / 32 / 16
+/// bytes for AES-128-CTR / ChaCha20 / SipHash-2-4). Throws `ITBError`
+/// carrying `Status.BadInput` when `master` is shorter than 32 bytes.
 ubyte[] wrapperDeriveKey(Cipher cipher, const(ubyte)[] master) @trusted
 {
     size_t klen = keySize(cipher);
-    if (master.length < klen)
-    {
-        import std.conv : to;
-        throw new WrapperInvalidKeyError(
-            Status.BadInput,
-            "wrapper " ~ ffiName(cipher) ~ ": master must be at least "
-            ~ klen.to!string ~ " bytes, got " ~ master.length.to!string);
-    }
     auto name = ffiName(cipher);
     const(char)* cname = toStringz(name);
     auto outBuf = new ubyte[klen];

@@ -1,6 +1,8 @@
 // Command eitb runs every wrapper example, also wrapping the ITB
-// ciphertext in one of three outer stream ciphers (AES-128-CTR /
-// ChaCha20 / SipHash-2-4 in CTR mode) so the on-wire bytes look
+// ciphertext in one of nine PRF-grade outer stream ciphers
+// (Areion-SoEM-256 / Areion-SoEM-512 / SipHash-2-4 in CTR mode /
+// AES-128-CTR / BLAKE2b-256 / BLAKE2b-512 / BLAKE2s / BLAKE3 /
+// ChaCha20 (RFC8439)) so the on-wire bytes look
 // like generic outer cipher output rather than ITB native output.
 // Outer CTR mode cipher hides ITB nonce, WxH and 32-byte streamID
 // prefix under AEAD mode.
@@ -13,9 +15,9 @@
 // against the original plaintext.
 //
 // Usage:
-//   ./eitb              # run every example × every cipher (24 cells)
+//   ./eitb              # run every example × every cipher (72 cells)
 //   ./eitb --help       # print help
-//   ./eitb --example=message --cipher=aes
+//   ./eitb --example=message --cipher=aescmac
 module eitb;
 
 import std.algorithm.searching : canFind;
@@ -630,7 +632,7 @@ void main(string[] args)
     auto helpInfo = getopt(args,
         config.passThrough,
         "example",  "Run only examples whose name contains this substring.", &exampleFilter,
-        "cipher",   "Run only the given outer cipher (aes|chacha|siphash).",  &cipherFilter,
+        "cipher",   "Run only the given outer cipher (one of CIPHER_NAMES, e.g. areion256|areion512|siphash24|aescmac|blake2b256|blake2b512|blake2s|blake3|chacha20).",  &cipherFilter,
         "v|verbose","Print per-run plaintext / recovered sha256 hashes.",     &verbose);
 
     if (helpInfo.helpWanted)

@@ -1294,11 +1294,12 @@ are preferred.
 
 | Symbol | Purpose |
 |---|---|
-| `Cipher.aes128ctr / chacha20 / siphash24` | Cipher enum |
+| `Cipher.aes128Ctr / chaCha20 / siphash24 / areion256 / areion512 / blake2b256 / blake2b512 / blake2s / blake3` | Cipher enum |
 | `CIPHER_NAMES` | Canonical name list |
 | `string ffiName(Cipher c)` / `Cipher cipherFromName(string s)` | Enum ↔ string converters |
 | `size_t keySize(Cipher c)` / `size_t nonceSize(Cipher c)` | Cipher dimension accessors |
 | `ubyte[] wrapperGenerateKey(Cipher c)` | CSPRNG-fresh wrapper key |
+| `ubyte[] wrapperDeriveKey(Cipher c, const(ubyte)[] master)` | Deterministic wrapper key from a master secret (>= 32 bytes, e.g. an ML-KEM shared secret) |
 | `ubyte[] wrap(Cipher c, const(ubyte)[] key, const(ubyte)[] blob)` / `ubyte[] unwrap(...)` | Single Message Wrap / Unwrap |
 | `ubyte[] wrapInPlace(Cipher c, const(ubyte)[] key, ubyte[] buf)` / `ubyte[] unwrapInPlace(...)` | In-place Wrap / Unwrap |
 | `WrapStreamWriter / UnwrapStreamReader` | Streaming wrap writer / unwrap reader |
