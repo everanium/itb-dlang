@@ -21,12 +21,12 @@ private struct HashRow { string name; int width; }
 private static immutable HashRow[] CANONICAL_HASHES = [
     HashRow("areion256", 256),
     HashRow("areion512", 512),
-    HashRow("siphash24", 128),
-    HashRow("aescmac", 128),
     HashRow("blake2b256", 256),
     HashRow("blake2b512", 512),
     HashRow("blake2s", 256),
     HashRow("blake3", 256),
+    HashRow("aescmac", 128),
+    HashRow("siphash24", 128),
     HashRow("chacha20", 256),
 ];
 

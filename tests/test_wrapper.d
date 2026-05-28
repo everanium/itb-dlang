@@ -1,13 +1,7 @@
 // Phase wrapper-rollout: confirms the format-deniability `wrapper`
-// module round-trips ITB ciphertext under each of the nine PRF-grade
-// outer keystream ciphers (Areion-SoEM-256 / Areion-SoEM-512 /
-// SipHash-2-4 in CTR mode / AES-128-CTR / BLAKE2b-256 / BLAKE2b-512 /
-// BLAKE2s / BLAKE3 / ChaCha20 (RFC8439)), exercising Single Message
-// wrap/unwrap, in-place mutation, and streaming wrap/unwrap entry
-// points.
-//
-// Mirrors bindings/python/tests/test_wrapper.py and
-// bindings/rust/tests/test_wrapper.rs at coverage parity.
+// module round-trips ITB ciphertext under each of PRF-grade
+// outer keystream ciphers, exercising Single Message wrap/unwrap,
+// in-place mutation, and streaming wrap/unwrap entry points.
 //
 // Compile recipe:
 //   ./run_tests.sh test_wrapper
@@ -22,12 +16,12 @@ import itb;
 immutable Cipher[] ALL_CIPHERS = [
     Cipher.areion256,
     Cipher.areion512,
-    Cipher.sipHash24,
-    Cipher.aes128Ctr,
     Cipher.blake2b256,
     Cipher.blake2b512,
     Cipher.blake2s,
     Cipher.blake3,
+    Cipher.aes128Ctr,
+    Cipher.sipHash24,
     Cipher.chaCha20,
 ];
 
@@ -43,33 +37,33 @@ void testCipherEnumIntrospection()
 {
     assert(ffiName(Cipher.areion256)  == "areion256");
     assert(ffiName(Cipher.areion512)  == "areion512");
-    assert(ffiName(Cipher.sipHash24)  == "siphash24");
-    assert(ffiName(Cipher.aes128Ctr)  == "aescmac");
     assert(ffiName(Cipher.blake2b256) == "blake2b256");
     assert(ffiName(Cipher.blake2b512) == "blake2b512");
     assert(ffiName(Cipher.blake2s)    == "blake2s");
     assert(ffiName(Cipher.blake3)     == "blake3");
+    assert(ffiName(Cipher.aes128Ctr)  == "aescmac");
+    assert(ffiName(Cipher.sipHash24)  == "siphash24");
     assert(ffiName(Cipher.chaCha20)   == "chacha20");
 
     assert(cipherFromName("areion256")  == Cipher.areion256);
     assert(cipherFromName("areion512")  == Cipher.areion512);
-    assert(cipherFromName("siphash24")  == Cipher.sipHash24);
-    assert(cipherFromName("aescmac")    == Cipher.aes128Ctr);
     assert(cipherFromName("blake2b256") == Cipher.blake2b256);
     assert(cipherFromName("blake2b512") == Cipher.blake2b512);
     assert(cipherFromName("blake2s")    == Cipher.blake2s);
     assert(cipherFromName("blake3")     == Cipher.blake3);
+    assert(cipherFromName("aescmac")    == Cipher.aes128Ctr);
+    assert(cipherFromName("siphash24")  == Cipher.sipHash24);
     assert(cipherFromName("chacha20")   == Cipher.chaCha20);
 
     assert(CIPHER_NAMES.length == 9);
     assert(CIPHER_NAMES[0] == Cipher.areion256);
     assert(CIPHER_NAMES[1] == Cipher.areion512);
-    assert(CIPHER_NAMES[2] == Cipher.sipHash24);
-    assert(CIPHER_NAMES[3] == Cipher.aes128Ctr);
-    assert(CIPHER_NAMES[4] == Cipher.blake2b256);
-    assert(CIPHER_NAMES[5] == Cipher.blake2b512);
-    assert(CIPHER_NAMES[6] == Cipher.blake2s);
-    assert(CIPHER_NAMES[7] == Cipher.blake3);
+    assert(CIPHER_NAMES[2] == Cipher.blake2b256);
+    assert(CIPHER_NAMES[3] == Cipher.blake2b512);
+    assert(CIPHER_NAMES[4] == Cipher.blake2s);
+    assert(CIPHER_NAMES[5] == Cipher.blake3);
+    assert(CIPHER_NAMES[6] == Cipher.aes128Ctr);
+    assert(CIPHER_NAMES[7] == Cipher.sipHash24);
     assert(CIPHER_NAMES[8] == Cipher.chaCha20);
 
     auto err = collectException!WrapperInvalidCipherError(cipherFromName("nope"));
@@ -81,27 +75,25 @@ void testCipherEnumIntrospection()
 void testKeyAndNonceSizes()
 {
     // Sizes must match the Go-side wrapper.KeySize / NonceSize for
-    // each canonical cipher: areion256 32/16, areion512 64/16,
-    // siphash 16/16, aes 16/16, blake2b256 32/16, blake2b512 32/16,
-    // blake2s 32/16, blake3 32/16, chacha 32/12.
+    // each canonical cipher.
     assert(keySize(Cipher.areion256)  == 32);
     assert(keySize(Cipher.areion512)  == 64);
-    assert(keySize(Cipher.sipHash24)  == 16);
-    assert(keySize(Cipher.aes128Ctr)  == 16);
     assert(keySize(Cipher.blake2b256) == 32);
     assert(keySize(Cipher.blake2b512) == 32);
     assert(keySize(Cipher.blake2s)    == 32);
     assert(keySize(Cipher.blake3)     == 32);
+    assert(keySize(Cipher.aes128Ctr)  == 16);
+    assert(keySize(Cipher.sipHash24)  == 16);
     assert(keySize(Cipher.chaCha20)   == 32);
 
     assert(nonceSize(Cipher.areion256)  == 16);
     assert(nonceSize(Cipher.areion512)  == 16);
-    assert(nonceSize(Cipher.sipHash24)  == 16);
-    assert(nonceSize(Cipher.aes128Ctr)  == 16);
     assert(nonceSize(Cipher.blake2b256) == 16);
     assert(nonceSize(Cipher.blake2b512) == 16);
     assert(nonceSize(Cipher.blake2s)    == 16);
     assert(nonceSize(Cipher.blake3)     == 16);
+    assert(nonceSize(Cipher.aes128Ctr)  == 16);
+    assert(nonceSize(Cipher.sipHash24)  == 16);
     assert(nonceSize(Cipher.chaCha20)   == 12);
 }
 

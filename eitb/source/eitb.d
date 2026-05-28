@@ -1,11 +1,8 @@
 // Command eitb runs every wrapper example, also wrapping the ITB
-// ciphertext in one of nine PRF-grade outer stream ciphers
-// (Areion-SoEM-256 / Areion-SoEM-512 / SipHash-2-4 in CTR mode /
-// AES-128-CTR / BLAKE2b-256 / BLAKE2b-512 / BLAKE2s / BLAKE3 /
-// ChaCha20 (RFC8439)) so the on-wire bytes look
-// like generic outer cipher output rather than ITB native output.
-// Outer CTR mode cipher hides ITB nonce, WxH and 32-byte streamID
-// prefix under AEAD mode.
+// ciphertext in one of PRF-grade outer stream ciphers in CTR mode,
+// so the on-wire bytes look like generic outer cipher output rather
+// than ITB native output. Outer CTR mode cipher hides ITB nonce,
+// WxH and 32-byte streamID prefix under AEAD mode.
 //
 // Mirrors github.com/everanium/itb/tools/eitb/main.go for the D
 // binding. Each example produces a non-trivial random plaintext,
@@ -111,6 +108,7 @@ Cell runAEADEasyIO(Cipher cipher, const(ubyte)[] plaintext) @trusted
         enc.setBarrierFill(4);
         enc.setBitSoup(1);
         enc.setLockSoup(1);
+        enc.setLockBatch(1);
 
         auto outerKey = wrapperGenerateKey(cipher);
 
@@ -194,6 +192,7 @@ Cell runAEADLowLevelIO(Cipher cipher, const(ubyte)[] plaintext) @trusted
         setBarrierFill(4);
         setBitSoup(1);
         setLockSoup(1);
+        setLockBatch(1);
 
         auto noise = Seed("areion512", 1024);
         auto data  = Seed("areion512", 1024);
@@ -287,6 +286,7 @@ Cell runNoAEADEasyUserLoop(Cipher cipher, const(ubyte)[] plaintext) @trusted
         enc.setBarrierFill(4);
         enc.setBitSoup(1);
         enc.setLockSoup(1);
+        enc.setLockBatch(1);
 
         auto outerKey = wrapperGenerateKey(cipher);
 
@@ -358,6 +358,7 @@ Cell runNoAEADLowLevelUserLoop(Cipher cipher, const(ubyte)[] plaintext) @trusted
         setBarrierFill(4);
         setBitSoup(1);
         setLockSoup(1);
+        setLockBatch(1);
 
         auto noise = Seed("areion512", 1024);
         auto data  = Seed("areion512", 1024);
@@ -438,6 +439,7 @@ Cell runMessageEasyNoMAC(Cipher cipher, const(ubyte)[] plaintext) @trusted
         enc.setBarrierFill(4);
         enc.setBitSoup(1);
         enc.setLockSoup(1);
+        enc.setLockBatch(1);
 
         auto encrypted = enc.encrypt(plaintext).dup;
 
@@ -488,6 +490,7 @@ Cell runMessageEasyAuth(Cipher cipher, const(ubyte)[] plaintext) @trusted
         enc.setBarrierFill(4);
         enc.setBitSoup(1);
         enc.setLockSoup(1);
+        enc.setLockBatch(1);
 
         auto encrypted = enc.encryptAuth(plaintext).dup;
 
@@ -536,6 +539,7 @@ Cell runMessageLowLevelNoMAC(Cipher cipher, const(ubyte)[] plaintext) @trusted
         setBarrierFill(4);
         setBitSoup(1);
         setLockSoup(1);
+        setLockBatch(1);
 
         auto noise = Seed("areion512", 2048);
         auto data  = Seed("areion512", 2048);
@@ -587,6 +591,7 @@ Cell runMessageLowLevelAuth(Cipher cipher, const(ubyte)[] plaintext) @trusted
         setBarrierFill(4);
         setBitSoup(1);
         setLockSoup(1);
+        setLockBatch(1);
 
         auto noise = Seed("areion512", 2048);
         auto data  = Seed("areion512", 2048);
@@ -632,7 +637,7 @@ void main(string[] args)
     auto helpInfo = getopt(args,
         config.passThrough,
         "example",  "Run only examples whose name contains this substring.", &exampleFilter,
-        "cipher",   "Run only the given outer cipher (one of CIPHER_NAMES, e.g. areion256|areion512|siphash24|aescmac|blake2b256|blake2b512|blake2s|blake3|chacha20).",  &cipherFilter,
+        "cipher",   "Run only the given outer cipher (one of CIPHER_NAMES).",  &cipherFilter,
         "v|verbose","Print per-run plaintext / recovered sha256 hashes.",     &verbose);
 
     if (helpInfo.helpWanted)

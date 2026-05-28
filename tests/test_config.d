@@ -28,6 +28,14 @@ void testLockSoupRoundtrip()
     setLockSoup(orig);
 }
 
+void testLockBatchRoundtrip()
+{
+    auto orig = getLockBatch();
+    setLockBatch(1);
+    assert(getLockBatch() == 1, "setLockBatch(1) must read back as 1");
+    setLockBatch(orig);
+}
+
 void testMaxWorkersRoundtrip()
 {
     auto orig = getMaxWorkers();
@@ -78,6 +86,7 @@ void main()
 {
     testBitSoupRoundtrip();
     testLockSoupRoundtrip();
+    testLockBatchRoundtrip();
     testMaxWorkersRoundtrip();
     testNonceBitsValidation();
     testBarrierFillValidation();

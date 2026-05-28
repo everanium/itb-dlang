@@ -30,12 +30,12 @@ struct CanonicalHash
 immutable CanonicalHash[] CANONICAL_HASHES = [
     CanonicalHash("areion256", 256),
     CanonicalHash("areion512", 512),
-    CanonicalHash("siphash24", 128),
-    CanonicalHash("aescmac", 128),
     CanonicalHash("blake2b256", 256),
     CanonicalHash("blake2b512", 512),
     CanonicalHash("blake2s", 256),
     CanonicalHash("blake3", 256),
+    CanonicalHash("aescmac", 128),
+    CanonicalHash("siphash24", 128),
     CanonicalHash("chacha20", 256),
 ];
 

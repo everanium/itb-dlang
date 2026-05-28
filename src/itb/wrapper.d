@@ -3,15 +3,12 @@
 /// D-idiomatic surface over the 12 `ITB_Wrap*` / `ITB_Unwrap*` /
 /// `ITB_WrapStream*` / `ITB_UnwrapStream*` / `ITB_WrapperKeySize` /
 /// `ITB_WrapperNonceSize` exports in `cmd/cshared/main.go`. Wraps an
-/// ITB ciphertext under one of nine PRF-grade outer keystream ciphers
-/// (Areion-SoEM-256 / Areion-SoEM-512 / SipHash-2-4 in CTR mode /
-/// AES-128-CTR / BLAKE2b-256 / BLAKE2b-512 / BLAKE2s / BLAKE3 /
-/// ChaCha20 (RFC8439)) so the on-wire
-/// bytes carry no ITB-specific format pattern (W / H / container
-/// layout for Non-AEAD; 32-byte streamID prefix + per-chunk metadata
-/// for Streaming AEAD). The wrap exists for format-deniability ONLY —
-/// ITB already provides content-deniability and the AEAD path
-/// already provides integrity.
+/// ITB ciphertext under one of PRF-grade outer keystream ciphers,
+/// so the on-wire bytes carry no ITB-specific format pattern
+/// (W / H / container layout for Non-AEAD; 32-byte streamID prefix +
+/// per-chunk metadata for Streaming AEAD). The wrap exists for
+/// format-deniability ONLY — ITB already provides content-deniability
+/// and the AEAD path already provides integrity.
 ///
 /// Quick start (Single Message wrap / unwrap):
 ///
@@ -25,7 +22,7 @@
 /// assert(recovered == blob);
 /// ---
 ///
-/// Single Message in-place mutation (zero-allocation steady state):
+/// Single Message in-place mutation (no output-buffer allocation):
 ///
 /// ---
 /// auto mutable = blob.dup;
@@ -48,16 +45,9 @@
 /// wireBuf ~= ww.update(cast(const(ubyte)[]) "chunk-2");
 /// ---
 ///
-/// The `Cipher` enum selects one of nine PRF-grade outer ciphers:
-/// `areion256` (Areion-SoEM-256 in CTR mode), `areion512`
-/// (Areion-SoEM-512 in CTR mode), `sipHash24` (SipHash-2-4 in CTR mode
-/// — custom CTR construction over the SipHash-2-4 PRF), `aes128Ctr`
-/// (AES-128-CTR — AES-NI accelerated on the libitb side), `blake2b256`
-/// (BLAKE2b-256 in CTR mode), `blake2b512` (BLAKE2b-512 in CTR mode),
-/// `blake2s` (BLAKE2s in CTR mode), `blake3` (BLAKE3 in CTR mode), or
-/// `chaCha20` (ChaCha20 (RFC8439)). Each maps to one ITB registry
-/// primitive; key and nonce sizes follow the underlying primitive —
-/// query them via `keySize` / `nonceSize`.
+/// The `Cipher` enum selects one of PRF-grade outer ciphers.
+/// Each maps to one ITB registry primitive; key and nonce sizes
+/// follow the underlying primitive — query them via `keySize` / `nonceSize`.
 ///
 /// Threading. Each `WrapStreamWriter` / `UnwrapStreamReader` owns
 /// one libitb stream handle and is single-feeder by construction.
@@ -79,30 +69,8 @@ import itb.sys;
 // --------------------------------------------------------------------
 
 /// Outer keystream cipher selected per wrap session.
-///
-/// Each variant maps to one of the nine PRF-grade cipher-name strings
-/// the underlying FFI accepts: `"areion256"` / `"areion512"` /
-/// `"siphash24"` / `"aescmac"` / `"blake2b256"` / `"blake2b512"` /
-/// `"blake2s"` / `"blake3"` / `"chacha20"`. The Go-side constants are
-/// `wrapper.CipherAreion256` / `wrapper.CipherAreion512` /
-/// `wrapper.CipherSipHash24` / `wrapper.CipherAES128CTR` /
-/// `wrapper.CipherBLAKE2b256` / `wrapper.CipherBLAKE2b512` /
-/// `wrapper.CipherBLAKE2s` / `wrapper.CipherBLAKE3` /
-/// `wrapper.CipherChaCha20`.
 enum Cipher
 {
-    /// AES-128-CTR — 16-byte key, 16-byte nonce. Hardware-accelerated
-    /// on the libitb side via Go's `crypto/cipher.NewCTR` over
-    /// `crypto/aes.NewCipher` (AES-NI on x86_64; ARM crypto extension
-    /// on aarch64).
-    aes128Ctr,
-    /// ChaCha20 (RFC 8439) — 32-byte key, 12-byte nonce. No AES-NI
-    /// dependency.
-    chaCha20,
-    /// SipHash-2-4 in CTR mode — 16-byte key, 16-byte nonce. Custom
-    /// CTR construction over the SipHash-2-4 PRF; sound under the
-    /// standard PRF assumption that justifies AES-CTR.
-    sipHash24,
     /// Areion-SoEM-256 in CTR mode — 32-byte key, 16-byte nonce.
     /// Keyed Areion-SoEM-256 PRF; AES-round-based, AES-NI accelerated.
     areion256,
@@ -121,6 +89,18 @@ enum Cipher
     /// BLAKE3 in CTR mode — 32-byte key, 16-byte nonce.
     /// Keyed BLAKE3 PRF.
     blake3,
+    /// AES-128-CTR — 16-byte key, 16-byte nonce. Hardware-accelerated
+    /// on the libitb side via Go's `crypto/cipher.NewCTR` over
+    /// `crypto/aes.NewCipher` (AES-NI on x86_64; ARM crypto extension
+    /// on aarch64).
+    aes128Ctr,
+    /// SipHash-2-4 in CTR mode — 16-byte key, 16-byte nonce. Custom
+    /// CTR construction over the SipHash-2-4 PRF; sound under the
+    /// standard PRF assumption that justifies AES-CTR.
+    sipHash24,
+    /// ChaCha20 (RFC 8439) — 32-byte key, 12-byte nonce. No AES-NI
+    /// dependency.
+    chaCha20,
 }
 
 /// Canonical iteration order of supported outer ciphers. Matches the
@@ -128,12 +108,12 @@ enum Cipher
 immutable Cipher[] CIPHER_NAMES = [
     Cipher.areion256,
     Cipher.areion512,
-    Cipher.sipHash24,
-    Cipher.aes128Ctr,
     Cipher.blake2b256,
     Cipher.blake2b512,
     Cipher.blake2s,
     Cipher.blake3,
+    Cipher.aes128Ctr,
+    Cipher.sipHash24,
     Cipher.chaCha20,
 ];
 
@@ -142,35 +122,33 @@ string ffiName(Cipher cipher) @safe pure
 {
     final switch (cipher)
     {
-        case Cipher.aes128Ctr:  return "aescmac";
-        case Cipher.chaCha20:   return "chacha20";
-        case Cipher.sipHash24:  return "siphash24";
         case Cipher.areion256:  return "areion256";
         case Cipher.areion512:  return "areion512";
         case Cipher.blake2b256: return "blake2b256";
         case Cipher.blake2b512: return "blake2b512";
         case Cipher.blake2s:    return "blake2s";
         case Cipher.blake3:     return "blake3";
+        case Cipher.aes128Ctr:  return "aescmac";
+        case Cipher.sipHash24:  return "siphash24";
+        case Cipher.chaCha20:   return "chacha20";
     }
 }
 
 /// Parses a cipher name string into a `Cipher` value. Accepts only
-/// the nine canonical forms ("areion256" / "areion512" / "siphash24" /
-/// "aescmac" / "blake2b256" / "blake2b512" / "blake2s" / "blake3" /
-/// "chacha20"); any other value raises `WrapperInvalidCipherError`.
+/// canonical forms, any other value raises `WrapperInvalidCipherError`.
 Cipher cipherFromName(string name) @safe pure
 {
     switch (name)
     {
-        case "aescmac":    return Cipher.aes128Ctr;
-        case "chacha20":   return Cipher.chaCha20;
-        case "siphash24":  return Cipher.sipHash24;
         case "areion256":  return Cipher.areion256;
         case "areion512":  return Cipher.areion512;
         case "blake2b256": return Cipher.blake2b256;
         case "blake2b512": return Cipher.blake2b512;
         case "blake2s":    return Cipher.blake2s;
         case "blake3":     return Cipher.blake3;
+        case "aescmac":    return Cipher.aes128Ctr;
+        case "siphash24":  return Cipher.sipHash24;
+        case "chacha20":   return Cipher.chaCha20;
         default:
             throw new WrapperInvalidCipherError(name);
     }
@@ -196,10 +174,8 @@ class WrapperError : ITBError
     }
 }
 
-/// Raised when a cipher name string is not one of the nine PRF-grade
-/// outer cipher names ("areion256" / "areion512" / "siphash24" /
-/// "aescmac" / "blake2b256" / "blake2b512" / "blake2s" / "blake3" /
-/// "chacha20"). Carries `Status.BadInput`.
+/// Raised when a cipher name string is not one of supported
+/// outer cipher names. Carries `Status.BadInput`.
 class WrapperInvalidCipherError : WrapperError
 {
     /// The unparseable cipher name.
@@ -211,8 +187,7 @@ class WrapperInvalidCipherError : WrapperError
          Throwable next = null) @safe pure nothrow
     {
         super(Status.BadInput,
-              "unknown wrapper cipher \"" ~ name
-              ~ "\" (expected aes / chacha / siphash)",
+              "unknown wrapper cipher \"" ~ name ~ "\"",
               file, line, next);
         this.cipherName = name;
     }
@@ -264,8 +239,7 @@ class WrapperHandleClosedError : WrapperError
 // --------------------------------------------------------------------
 
 /// Returns the byte length of the keystream-cipher key for the
-/// named outer cipher (16 / 32 / 16 for AES-128-CTR / ChaCha20 /
-/// SipHash-2-4).
+/// named outer cipher (16 / 32 / 64).
 size_t keySize(Cipher cipher) @trusted
 {
     auto name = ffiName(cipher);
@@ -277,8 +251,7 @@ size_t keySize(Cipher cipher) @trusted
 }
 
 /// Returns the on-wire nonce length the named outer cipher emits
-/// per stream (16 / 12 / 16 for AES-128-CTR / ChaCha20 /
-/// SipHash-2-4).
+/// per stream (12 for ChaCha20; 16 for other outer ciphers).
 size_t nonceSize(Cipher cipher) @trusted
 {
     auto name = ffiName(cipher);
@@ -289,12 +262,7 @@ size_t nonceSize(Cipher cipher) @trusted
     return n;
 }
 
-/// Returns a fresh CSPRNG-generated key of the size required by
-/// `cipher` (16 / 32 / 16 bytes for AES-128-CTR / ChaCha20 /
-/// SipHash-2-4). Uses `std.random.unpredictableSeed` chained with a
-/// xorshift64* expander seeded from the OS entropy pool — the
-/// libitb-side draw via `crypto/rand` happens internally on every
-/// wrap/unwrap call and remains the source of nonce entropy.
+/// Returns a fresh CSPRNG-generated key.
 ubyte[] wrapperGenerateKey(Cipher cipher) @trusted
 {
     import std.random : unpredictableSeed;
@@ -322,8 +290,7 @@ ubyte[] wrapperGenerateKey(Cipher cipher) @trusted
 /// 256-bit master matching an ML-KEM shared secret). The kdf layer
 /// truncates / stretches that master to the per-cipher key length
 /// internally, so a single 32-byte master keys every outer cipher.
-/// Returns the derived key of length `keySize(cipher)` (16 / 32 / 16
-/// bytes for AES-128-CTR / ChaCha20 / SipHash-2-4). Throws `ITBError`
+/// Returns the derived key of length `keySize(cipher)`. Throws `ITBError`
 /// carrying `Status.BadInput` when `master` is shorter than 32 bytes.
 ubyte[] wrapperDeriveKey(Cipher cipher, const(ubyte)[] master) @trusted
 {
@@ -380,8 +347,8 @@ private void _checkNonceLen(Cipher cipher, size_t nlen) @trusted
 /// `nonce || keystream-XOR(blob)`.
 ///
 /// Allocates a fresh output buffer of size
-/// `nonceSize(cipher) + blob.length` per call. For zero-allocation
-/// steady state on the hot path use `wrapInPlace`.
+/// `nonceSize(cipher) + blob.length` per call. For no output-buffer
+/// allocation on the hot path use `wrapInPlace`.
 ubyte[] wrap(Cipher cipher, const(ubyte)[] key, const(ubyte)[] blob) @trusted
 {
     _checkKeyLen(cipher, key.length);
@@ -407,8 +374,8 @@ ubyte[] wrap(Cipher cipher, const(ubyte)[] key, const(ubyte)[] blob) @trusted
 /// under `(key, nonce)` and returns the recovered blob.
 ///
 /// Allocates a fresh output buffer of size
-/// `wire.length - nonceSize(cipher)` per call. For zero-allocation
-/// steady state use `unwrapInPlace`.
+/// `wire.length - nonceSize(cipher)` per call. For no output-buffer
+/// allocation use `unwrapInPlace`.
 ubyte[] unwrap(Cipher cipher, const(ubyte)[] key, const(ubyte)[] wire) @trusted
 {
     _checkKeyLen(cipher, key.length);

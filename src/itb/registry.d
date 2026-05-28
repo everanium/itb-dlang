@@ -33,8 +33,8 @@ struct HashInfo
 }
 
 /// Returns the list of PRF-grade hashes libitb knows about, in
-/// canonical FFI order: `areion256`, `areion512`, `siphash24`,
-/// `aescmac`, `blake2b256`, `blake2b512`, `blake2s`, `blake3`,
+/// canonical FFI order: `areion256`, `areion512`, `blake2b256`,
+/// `blake2b512`, `blake2s`, `blake3`, `aescmac`, `siphash24`,
 /// `chacha20`. The below-spec lab primitives `crc128` / `fnv1a` /
 /// `md5` are not exposed through this surface and never appear here.
 HashInfo[] listHashes() @trusted
@@ -146,6 +146,20 @@ void setLockSoup(int mode) @trusted
 int getLockSoup() @trusted @nogc nothrow
 {
     return ITB_GetLockSoup();
+}
+
+/// Enables (`mode = 1`) or disables (`mode = 0`) lock-batch mode
+/// process-wide. Per-chunk PRF batching for the Lock Soup overlay;
+/// inert unless Lock Soup is engaged. Same lifecycle rules as
+/// `setLockSoup`.
+void setLockBatch(int mode) @trusted
+{
+    check(ITB_SetLockBatch(mode));
+}
+
+int getLockBatch() @trusted @nogc nothrow
+{
+    return ITB_GetLockBatch();
 }
 
 /// Sets the worker-pool cap for parallelised cipher operations. `n` of

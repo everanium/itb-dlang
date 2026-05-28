@@ -186,6 +186,8 @@ int ITB_SetBitSoup(int mode);
 int ITB_GetBitSoup();
 int ITB_SetLockSoup(int mode);
 int ITB_GetLockSoup();
+int ITB_SetLockBatch(int mode);
+int ITB_GetLockBatch();
 int ITB_SetMaxWorkers(int n);
 int ITB_GetMaxWorkers();
 int ITB_SetNonceBits(int n);
@@ -208,6 +210,7 @@ int ITB_Easy_SetNonceBits(size_t handle, int n);
 int ITB_Easy_SetBarrierFill(size_t handle, int n);
 int ITB_Easy_SetBitSoup(size_t handle, int mode);
 int ITB_Easy_SetLockSoup(size_t handle, int mode);
+int ITB_Easy_SetLockBatch(size_t handle, int mode);
 int ITB_Easy_SetLockSeed(size_t handle, int mode);
 int ITB_Easy_SetChunkSize(size_t handle, int n);
 

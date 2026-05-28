@@ -26,12 +26,12 @@ struct CanonicalHash
 immutable CanonicalHash[] CANONICAL_HASHES = [
     CanonicalHash("areion256", 256),
     CanonicalHash("areion512", 512),
-    CanonicalHash("siphash24", 128),
-    CanonicalHash("aescmac", 128),
     CanonicalHash("blake2b256", 256),
     CanonicalHash("blake2b512", 512),
     CanonicalHash("blake2s", 256),
     CanonicalHash("blake3", 256),
+    CanonicalHash("aescmac", 128),
+    CanonicalHash("siphash24", 128),
     CanonicalHash("chacha20", 256),
 ];
 
@@ -41,12 +41,12 @@ size_t expectedHashKeyLen(string name)
     {
         case "areion256":  return 32;
         case "areion512":  return 64;
-        case "siphash24":  return 0;
-        case "aescmac":    return 16;
         case "blake2b256": return 32;
         case "blake2b512": return 64;
         case "blake2s":    return 32;
         case "blake3":     return 32;
+        case "aescmac":    return 16;
+        case "siphash24":  return 0;
         case "chacha20":   return 32;
         default: assert(false, "unexpected primitive " ~ name);
     }

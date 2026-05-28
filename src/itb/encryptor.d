@@ -202,8 +202,8 @@ struct Encryptor
     /// Constructs a fresh encryptor.
     ///
     /// `primitive` is a canonical hash name from `listHashes` —
-    /// `"areion256"`, `"areion512"`, `"siphash24"`, `"aescmac"`,
-    /// `"blake2b256"`, `"blake2b512"`, `"blake2s"`, `"blake3"`,
+    /// `"areion256"`, `"areion512"`, `"blake2b256"`, `"blake2b512"`,
+    /// `"blake2s"`, `"blake3"`, `"aescmac"`, `"siphash24"`,
     /// `"chacha20"`. Empty / `null` selects the libitb default
     /// (`"areion512"`).
     ///
@@ -838,6 +838,14 @@ struct Encryptor
     {
         _checkOpen();
         check(ITB_Easy_SetLockSoup(_handle, mode));
+    }
+
+    /// 0 = off (default); non-zero = on. Per-chunk PRF batching for the
+    /// Lock Soup overlay; inert unless Lock Soup is engaged.
+    void setLockBatch(int mode) @trusted
+    {
+        _checkOpen();
+        check(ITB_Easy_SetLockBatch(_handle, mode));
     }
 
     /// 0 = off; 1 = on (allocates a dedicated lockSeed and routes the

@@ -20,12 +20,12 @@ private struct HashRow { string name; int width; }
 private static immutable HashRow[] CANONICAL_HASHES = [
     HashRow("areion256", 256),
     HashRow("areion512", 512),
-    HashRow("siphash24", 128),
-    HashRow("aescmac", 128),
     HashRow("blake2b256", 256),
     HashRow("blake2b512", 512),
     HashRow("blake2s", 256),
     HashRow("blake3", 256),
+    HashRow("aescmac", 128),
+    HashRow("siphash24", 128),
     HashRow("chacha20", 256),
 ];
 
@@ -35,12 +35,12 @@ private size_t expectedPrfKeyLen(string name)
     {
         case "areion256":  return 32;
         case "areion512":  return 64;
-        case "siphash24":  return 0;
-        case "aescmac":    return 16;
         case "blake2b256": return 32;
         case "blake2b512": return 64;
         case "blake2s":    return 32;
         case "blake3":     return 32;
+        case "aescmac":    return 16;
+        case "siphash24":  return 0;
         case "chacha20":   return 32;
         default: assert(false, "unknown hash " ~ name);
     }
