@@ -400,11 +400,9 @@ enc.setBitSoup(1);        // optional bit-level split ("bit-soup"; default: 0 = 
 enc.setLockSoup(1);       // optional Insane Interlocked Mode: per-chunk PRF-keyed
                           // bit-permutation overlay on top of bit-soup;
                           // auto-enabled for Single Ouroboros if setBitSoup(1) is on
-enc.setLockBatch(1);      // Lock Batch is the performance Lock Soup mode: recommended
-                          // in every case when the configured hash is PRF-grade, since
-                          // security is preserved under the PRF assumption while
-                          // throughput rises. Symmetric option — set identically on
-                          // the encrypt and decrypt sides.
+enc.setLockBatch(1);      // Recommended under the PRF assumption,
+                          // the performance Lock Soup mode.
+                          // Symmetric, set on both sides.
 
 // enc.setLockSeed(1);    // optional dedicated lockSeed for the bit-permutation
                           // derivation channel — separates that PRF's keying
@@ -487,7 +485,9 @@ dec.setNonceBits(512);
 dec.setBarrierFill(4);
 dec.setBitSoup(1);
 dec.setLockSoup(1);
-dec.setLockBatch(1);      // Recommended under the PRF assumption — the performance Lock Soup mode; symmetric, set on both sides.
+dec.setLockBatch(1);      // Recommended under the PRF assumption,
+                          // the performance Lock Soup mode.
+                          // Symmetric, set on both sides.
 // dec.setLockSeed(1);   // optional — Import below restores the dedicated
                          // lockSeed slot from the blob's lock_seed:true.
 
@@ -717,11 +717,9 @@ itb.setLockSoup(1);       // optional Insane Interlocked Mode: per-chunk PRF-key
                           // bit-permutation overlay on top of bit-soup;
                           // automatically enabled for Single Ouroboros if
                           // itb.setBitSoup(1) is enabled or vice versa
-itb.setLockBatch(1);      // Lock Batch is the performance Lock Soup mode: recommended
-                          // in every case when the configured hash is PRF-grade, since
-                          // security is preserved under the PRF assumption while
-                          // throughput rises. Symmetric option — set identically on
-                          // the encrypt and decrypt sides.
+itb.setLockBatch(1);      // Recommended under the PRF assumption,
+                          // the performance Lock Soup mode.
+                          // Symmetric, set on both sides.
 
 // Three independent CSPRNG-keyed Areion-SoEM-512 seeds. Each Seed
 // pre-keys its primitive once at construction; the C ABI / FFI
