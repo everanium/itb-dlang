@@ -8,6 +8,7 @@
 *.dylib
 *.dll
 __test__library__
+lib/
 bench/bin/
 bench/results/
 eitb/bin/
