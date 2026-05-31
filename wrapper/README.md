@@ -331,7 +331,7 @@ Every example × cipher combination round-trips against random plaintext (1 KiB 
 [PASS] message-lowlevel-auth      + chacha20   pt=1024 wire=8272
 ```
 
-The wire-byte difference between cipher columns is exactly the per-stream nonce-size delta (16 bytes for every cipher except ChaCha20 (RFC8439), which uses a 12-byte nonce); the User-Driven Loop variants additionally include 4 bytes of keystream-XORed length prefix per chunk. The wire byte counts match the Python / Rust / C# / Node.js / Ada bindings' matrices exactly under the same plaintext sizes.
+The wire-byte difference between cipher columns is exactly the per-stream nonce-size delta (16 bytes for every cipher except ChaCha20 (RFC 8439), which uses a 12-byte nonce); the User-Driven Loop variants additionally include 4 bytes of keystream-XORed length prefix per chunk. The wire byte counts match the Python / Rust / C# / Node.js / Ada bindings' matrices exactly under the same plaintext sizes.
 
 ## Performance
 

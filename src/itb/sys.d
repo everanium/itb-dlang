@@ -397,7 +397,7 @@ int ITB_Easy_DecryptStreamAuth(
 // in-place wrap / unwrap (2), streaming writer init / update / free
 // (3), streaming reader init / update / free (3). Wraps an ITB
 // ciphertext under one of three outer keystream ciphers — AES-128-CTR,
-// ChaCha20 (RFC8439), SipHash-2-4 in CTR mode — for format-deniability.
+// ChaCha20 (RFC 8439), SipHash-2-4 in CTR mode — for format-deniability.
 // See the Go-side `github.com/everanium/itb/wrapper` package for the
 // canonical contract. Bindings module: `itb.wrapper`.
 
