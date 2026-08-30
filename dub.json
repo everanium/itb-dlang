@@ -1,17 +1,12 @@
 {
     "name": "itb",
-    "version": "0.1.2",
-    "description": "ITB encryption - D language binding over libitb's C ABI.",
+    "version": "0.3.0",
+    "description": "ITB encryption - D language thin proxy over libitb's Triple Pipeline C ABI.",
     "license": "MIT",
     "authors": ["ITB project"],
 
     "targetType": "library",
     "targetPath": "lib",
-    "sourcePaths": ["src"],
-    "importPaths": ["src"],
-
-    "subPackages": [
-        "./bench",
-        "./eitb"
-    ]
+    "sourcePaths": ["source"],
+    "importPaths": ["source"]
 }

@@ -28,3 +28,4 @@ tests/build/
 
 # Local scratch — never staged
 scratch/
+/benches/build/
