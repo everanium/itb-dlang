@@ -80,6 +80,22 @@ struct Opts
         return withRaw("innerHash", name);
     }
 
+    /// Per-call constellation override mirroring the Go-side
+    /// `Opts.MixedHashes [8]string` field: the 8 slot names are
+    /// comma-joined into the `innerHashes` pass-through key in the
+    /// slot order `[noise, lock, data1, data2, data3, start1,
+    /// start2, start3]`. Fail-fast validation surfaces at Init on
+    /// the Go side; a typo'd slot or width mismatch surfaces with
+    /// an error naming the offending slot. When both this and
+    /// `withInnerHash` are set, the mixed override wins on the Go
+    /// side.
+    Opts withInnerHashes(scope const(string)[] names) const
+    {
+        import std.array : join;
+
+        return withRaw("innerHashes", names.join(","));
+    }
+
     Opts withOuterCipher(string name) const
     {
         return withRaw("outerCipher", name);

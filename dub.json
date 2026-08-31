@@ -1,6 +1,6 @@
 {
     "name": "itb",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "description": "ITB encryption - D language thin proxy over libitb's Triple Pipeline C ABI.",
     "license": "MIT",
     "authors": ["ITB project"],
