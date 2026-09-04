@@ -1,4 +1,4 @@
-/// Init → blob → Open → EncryptMessage → DecryptMessage round trip.
+/// Init → save → load → EncryptMessage → DecryptMessage round trip.
 module test_smoke;
 
 import std.stdio : writeln;
@@ -8,9 +8,9 @@ import itb;
 void main()
 {
     auto sender = Pipeline.create("singlemsg-triple-mac-v1");
-    assert(sender.blob.length > 0, "blob must be non-empty");
+    assert(sender.save().length > 0, "blob must be non-empty");
 
-    auto receiver = Pipeline.open("singlemsg-triple-mac-v1", sender.blob);
+    auto receiver = Pipeline.load(sender.save());
 
     auto plain = cast(const(ubyte)[]) "smoke round-trip payload";
     auto wire = sender.encryptMessage(plain);

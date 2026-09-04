@@ -11,7 +11,7 @@
 /// import itb;
 ///
 /// auto sender = Pipeline.create("singlemsg-triple-mac-v1");
-/// auto receiver = Pipeline.open("singlemsg-triple-mac-v1", sender.blob);
+/// auto receiver = Pipeline.load(sender.save());
 /// auto wire = sender.encryptMessage(cast(const(ubyte)[]) "hello");
 /// assert(receiver.decryptMessage(wire) == cast(const(ubyte)[]) "hello");
 /// ---
@@ -20,7 +20,8 @@ module itb;
 public import itb.buffer : BorrowedBytes;
 public import itb.error : ItbException, lastError;
 public import itb.opts : Opts;
-public import itb.pipeline : Pipeline, registerProfile;
+public import itb.pipeline : Pipeline, inspect, lookup, profiles, register;
+public import itb.profile : Profile;
 public import itb.runtime : bindingVersion, libitbVersion, setGCPercent,
     setMemoryLimit;
 public import itb.status : Status, statusFromRc, statusLabel;

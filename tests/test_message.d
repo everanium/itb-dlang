@@ -38,7 +38,7 @@ void main()
     foreach (profile; profiles)
     {
         auto sender = Pipeline.create(profile);
-        auto receiver = Pipeline.open(profile, sender.blob);
+        auto receiver = Pipeline.load(sender.save());
         foreach (size; [4 * 1024, 256 * 1024])
         {
             auto plain = payload(size, size);

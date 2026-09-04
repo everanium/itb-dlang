@@ -5,6 +5,7 @@ import itb.buffer;
 import itb.error;
 import itb.ffi;
 import itb.opts;
+import itb.profile;
 import itb.status;
 import itb.stream;
 
@@ -35,7 +36,8 @@ private extern (C) void itb_binding_gc_mark_tune()
     config.parallel = 0;
 }
 
-/// Floor capacity for blob output buffers (Init / Rekey).
+/// Floor capacity for blob / JSON output buffers (Init / Rekey / Save
+/// / Inspect / Lookup / Profiles).
 private enum size_t blobCap = 64 * 1024;
 
 /// Pre-allocation formula for Message / one-shot stream outputs:
@@ -46,8 +48,9 @@ private size_t outCap(size_t payload) @safe pure nothrow @nogc
     return cap > 131_072 ? cap : 131_072;
 }
 
-/// Single retry-once dispatch site for the cold blob outputs (Init /
-/// Rekey): pre-allocate `cap`, and on `BufferTooSmall` retry once
+/// Single retry-once dispatch site for the cold blob / JSON outputs
+/// (Init / Rekey / Save / Inspect / Lookup / Profiles): pre-allocate
+/// `cap`, and on `BufferTooSmall` retry once
 /// with the exact size the FFI reported through the length out-param.
 ///
 /// Retry guard: only re-runs when the FFI reports a required length
@@ -108,10 +111,10 @@ package(itb) BorrowedBytes retryOnceOwned(size_t cap,
 private alias CipherFn = extern (C) int function(
     size_t, const(void)*, size_t, void*, size_t, size_t*) @system @nogc nothrow;
 
-/// A Triple Pipeline session plus its exported blob bytes.
+/// A Triple Pipeline session.
 ///
-/// The blob carries the session bundle the receiver feeds to
-/// [Pipeline.open]; [Pipeline.rekey] refreshes it. The destructor
+/// [Pipeline.save] exports the session bundle the receiver feeds to
+/// [Pipeline.load]; [Pipeline.rekey] refreshes it. The destructor
 /// frees the handle (libitb zeroes key material internally). The
 /// struct is non-copyable; pass by `ref` or move.
 ///
@@ -121,15 +124,15 @@ private alias CipherFn = extern (C) int function(
 struct Pipeline
 {
     private size_t handle;
-    private ubyte[] blobBytes;
 
     @disable this(this);
 
     /// Constructs a fresh Pipeline against the named profile (the
     /// `init` name is reserved in D; `create` is the constructor
-    /// entry). On a blob-buffer retry the Init re-runs and yields a
-    /// fresh session (the undersized attempt is closed by libitb
-    /// before returning).
+    /// entry). The session bundle is available through
+    /// [Pipeline.save]. On a blob-buffer retry the Init re-runs and
+    /// yields a fresh session (the undersized attempt is closed by
+    /// libitb before returning).
     static Pipeline create(string profile, Opts opts = Opts()) @trusted
     {
         import std.string : toStringz;
@@ -137,50 +140,47 @@ struct Pipeline
         auto profileC = profile.toStringz;
         auto optsC = opts.build().toStringz;
         Pipeline p;
-        p.blobBytes = retryOnce(blobCap, (buf, len)
+        cast(void) retryOnce(blobCap, (buf, len)
             => ITB_Triple_Init(profileC, optsC,
                 buf.length ? &buf[0] : null, buf.length, len, &p.handle));
         return p;
     }
 
-    /// Reconstructs a Pipeline from a blob produced by
-    /// [Pipeline.create] or [Pipeline.rekey], using the blob-embedded
-    /// parallax + wrapper masters.
-    static Pipeline open(string profile, scope const(ubyte)[] blob,
-            Opts opts = Opts()) @safe
+    /// Reconstructs a Pipeline from a blob produced by [Pipeline.save]
+    /// or [Pipeline.rekey]. Pass empty `perm` / `wrap` to use the
+    /// blob-embedded masters; supply both to override them (the pair
+    /// is validated by libitb). The profile shape travels inside the
+    /// blob — no profile name, no opts. A blob whose record names a
+    /// primitive absent from the local build fails with
+    /// [Status.RecipePrimitiveUnknown]; a record failing the profile
+    /// field rules with [Status.BlobMalformedRecipe].
+    static Pipeline load(scope const(ubyte)[] blob,
+            scope const(ubyte)[] perm = null,
+            scope const(ubyte)[] wrap = null) @trusted
     {
-        return openImpl(profile, blob, opts, null, null, 0);
+        Pipeline p;
+        check(ITB_Triple_Load(
+            blob.length ? &blob[0] : null, blob.length,
+            perm.length ? &perm[0] : null, perm.length,
+            wrap.length ? &wrap[0] : null, wrap.length,
+            mastersCount(perm, wrap), &p.handle));
+        return p;
     }
 
-    /// Reconstructs a Pipeline overriding the blob-embedded masters
-    /// with the supplied parallax (`perm`) + wrapper (`wrap`) masters.
-    static Pipeline open(string profile, scope const(ubyte)[] blob,
-            Opts opts, scope const(ubyte)[] perm,
-            scope const(ubyte)[] wrap) @safe
-    {
-        if (perm.length == 0 || wrap.length == 0)
-            throw new ItbException(Status.BadInput,
-                "master override slices must be non-empty");
-        return openImpl(profile, blob, opts, perm, wrap, 2);
-    }
-
-    private static Pipeline openImpl(string profile,
-            scope const(ubyte)[] blob, Opts opts,
-            scope const(ubyte)[] perm, scope const(ubyte)[] wrap,
-            size_t mastersCount) @trusted
+    /// [Pipeline.load] for a blob stored at `path`; the file is read
+    /// inside libitb (a missing or unreadable file fails with
+    /// [Status.BadInput] and the diagnostic attached).
+    static Pipeline loadF(string path,
+            scope const(ubyte)[] perm = null,
+            scope const(ubyte)[] wrap = null) @trusted
     {
         import std.string : toStringz;
 
-        auto profileC = profile.toStringz;
-        auto optsC = opts.build().toStringz;
         Pipeline p;
-        check(ITB_Triple_Open(profileC,
-            blob.length ? &blob[0] : null, blob.length,
-            optsC,
+        check(ITB_Triple_LoadF(path.toStringz,
             perm.length ? &perm[0] : null, perm.length,
             wrap.length ? &wrap[0] : null, wrap.length,
-            mastersCount, &p.handle));
-        p.blobBytes = blob.dup;
+            mastersCount(perm, wrap), &p.handle));
         return p;
     }
 
@@ -194,20 +194,41 @@ struct Pipeline
         handle = 0;
     }
 
-    /// The exported session bundle bytes for the receiver side.
-    const(ubyte)[] blob() const @safe pure nothrow @nogc
+    /// The current session bundle bytes for the receiver side (the
+    /// Init blob, or the bytes of the latest [Pipeline.rekey]). A
+    /// closed Pipeline fails with [Status.TripleClosed].
+    ubyte[] save() @trusted
     {
-        return blobBytes;
+        return retryOnce(blobCap, (buf, len)
+            => ITB_Triple_Save(handle,
+                buf.length ? &buf[0] : null, buf.length, len));
     }
 
-    /// Rotates the parallax + wrapper masters and refreshes
-    /// [Pipeline.blob]. Must not run concurrently with cipher calls
-    /// or open stream sessions on the same Pipeline.
-    void rekey(scope const(ubyte)[] perm, scope const(ubyte)[] wrap) @trusted
+    /// Writes the current blob to `path` inside libitb (mode 0600; the
+    /// containing directory must exist).
+    void saveF(string path) @trusted
     {
-        immutable size_t cap = blobBytes.length > blobCap
-            ? blobBytes.length : blobCap;
-        blobBytes = retryOnce(cap, (buf, len)
+        import std.string : toStringz;
+
+        check(ITB_Triple_SaveF(handle, path.toStringz));
+    }
+
+    /// Sets the worker cap for every subsequent cipher call. `n` is
+    /// clamped by libitb (`<= 0` selects auto, `> 256` becomes 256);
+    /// only the handle state is reported. The cap is per-machine and
+    /// never travels in the blob.
+    void maxWorkers(int n) @trusted
+    {
+        check(ITB_Triple_MaxWorkers(handle, n));
+    }
+
+    /// Rotates the parallax + wrapper masters and returns the fresh
+    /// blob (also available through [Pipeline.save]). Must not run
+    /// concurrently with cipher calls or open stream sessions on the
+    /// same Pipeline.
+    ubyte[] rekey(scope const(ubyte)[] perm, scope const(ubyte)[] wrap) @trusted
+    {
+        return retryOnce(blobCap, (buf, len)
             => ITB_Triple_Rekey(handle,
                 perm.length ? &perm[0] : null, perm.length,
                 wrap.length ? &wrap[0] : null, wrap.length,
@@ -294,17 +315,61 @@ struct Pipeline
     }
 }
 
+/// The masters pair crosses as (perm, wrap, count): both absent → 0,
+/// otherwise 2 — libitb validates the pair.
+private size_t mastersCount(scope const(ubyte)[] perm,
+        scope const(ubyte)[] wrap) @safe pure nothrow @nogc
+{
+    return (perm.length == 0 && wrap.length == 0) ? 0 : 2;
+}
+
+/// Decodes the profile record embedded in `blob` without constructing
+/// a Pipeline. No registry read, no primitive probe — a primitive
+/// name the local build lacks is returned unchanged.
+Profile inspect(scope const(ubyte)[] blob) @trusted
+{
+    auto json = retryOnce(blobCap, (buf, len)
+        => ITB_Triple_Inspect(
+            blob.length ? &blob[0] : null, blob.length,
+            buf.length ? &buf[0] : null, buf.length, len));
+    return Profile.fromJson(cast(string) json);
+}
+
 /// Registers a user-defined Triple profile under `name` so subsequent
-/// [Pipeline.create] / [Pipeline.open] calls resolve it. The opts
-/// follow the register-profile grammar validated by Go (`mode`,
-/// `width`, `innerHash` / `innerHashes`, `keyBits`, `macName`,
-/// `outerCipher`, `parallaxPalette`, `parallaxSegmentSize`,
-/// `chunkSize`, `parallaxOn`, `wrapperOn`) — build them with
-/// [Opts.withRaw] plus the typed setters where key names coincide. A
-/// duplicate name fails with [Status.ProfileExists].
-void registerProfile(string name, Opts opts) @trusted
+/// [Pipeline.create] calls resolve it. The record's field rules are
+/// validated by libitb; a duplicate name fails with
+/// [Status.ProfileExists]. A non-empty `profile.name` must equal
+/// `name`.
+void register(string name, const Profile profile) @trusted
 {
     import std.string : toStringz;
 
-    check(ITB_Triple_RegisterProfile(name.toStringz, opts.build().toStringz));
+    check(ITB_Triple_Register(name.toStringz, profile.toJson().toStringz));
+}
+
+/// Returns the profile registered under `name` — a shipped catalogue
+/// entry or a prior [register] call. An unregistered name fails with
+/// [Status.UnknownProfile].
+Profile lookup(string name) @trusted
+{
+    import std.string : toStringz;
+
+    auto nameC = name.toStringz;
+    auto json = retryOnce(blobCap, (buf, len)
+        => ITB_Triple_Lookup(nameC,
+            buf.length ? &buf[0] : null, buf.length, len));
+    return Profile.fromJson(cast(string) json);
+}
+
+/// Returns the sorted list of every registered profile name.
+string[] profiles() @trusted
+{
+    import std.json : parseJSON;
+
+    auto json = retryOnce(blobCap, (buf, len)
+        => ITB_Triple_Profiles(buf.length ? &buf[0] : null, buf.length, len));
+    string[] names;
+    foreach (v; parseJSON(cast(string) json).array)
+        names ~= v.str;
+    return names;
 }

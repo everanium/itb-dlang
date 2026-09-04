@@ -17,7 +17,7 @@ ubyte[] patterned(size_t n, uint mod)
 void main()
 {
     auto sender = Pipeline.create("streaming-aead-triple-mac-v1");
-    auto receiver = Pipeline.open("streaming-aead-triple-mac-v1", sender.blob);
+    auto receiver = Pipeline.load(sender.save());
 
     // 1 MiB pump round trip.
     {

@@ -25,9 +25,9 @@ enum Status : int
     BadMAC            = 9,
     MACFailure        = 10,
 
-    Reserved11        = 11,
-    Reserved12        = 12,
-    Reserved13        = 13,
+    BlobMalformedRecipe    = 11,
+    RecipePrimitiveUnknown = 12,
+    UnknownProfile         = 13,
     Reserved14        = 14,
     Reserved15        = 15,
     Reserved16        = 16,
@@ -77,9 +77,9 @@ string statusLabel(Status st)
     case Status.SeedWidthMix:      return "seed width mismatch";
     case Status.BadMAC:            return "unknown MAC name or invalid MAC handle";
     case Status.MACFailure:        return "MAC verification failed";
-    case Status.Reserved11:
-    case Status.Reserved12:
-    case Status.Reserved13:
+    case Status.BlobMalformedRecipe:    return "blob recipe malformed";
+    case Status.RecipePrimitiveUnknown: return "blob recipe names an unknown primitive";
+    case Status.UnknownProfile:         return "unknown profile name";
     case Status.Reserved14:
     case Status.Reserved15:
     case Status.Reserved16:

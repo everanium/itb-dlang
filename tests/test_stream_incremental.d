@@ -11,8 +11,7 @@ void main()
     // Small chunk size so the 64 KiB payload spans many chunks.
     auto opts = Opts().withChunkSize(4096);
     auto sender = Pipeline.create("streaming-aead-triple-mac-v1", opts);
-    auto receiver = Pipeline.open("streaming-aead-triple-mac-v1",
-        sender.blob, opts);
+    auto receiver = Pipeline.load(sender.save());
 
     auto plain = new ubyte[65_536];
     foreach (i, ref b; plain)

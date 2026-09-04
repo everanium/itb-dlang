@@ -10,10 +10,10 @@ module itb.opts;
 @safe:
 
 /// Value-type builder producing the URL-query-encoded opts string
-/// consumed by [itb.pipeline.Pipeline.create],
-/// [itb.pipeline.Pipeline.open], and
-/// [itb.pipeline.registerProfile]. Every setter returns a fresh copy,
-/// so call chains on temporaries compose without aliasing.
+/// consumed by [itb.pipeline.Pipeline.create]. Profile registration
+/// takes an [itb.profile.Profile] record instead (see
+/// [itb.pipeline.register]). Every setter returns a fresh copy, so
+/// call chains on temporaries compose without aliasing.
 struct Opts
 {
     private string[2][] pairs;
@@ -110,9 +110,7 @@ struct Opts
     }
 
     /// Escape hatch appending a raw `key=value` pair. Covers every
-    /// key the Go side accepts, including the register-profile
-    /// grammar (`mode`, `width`, `innerHashes`, `parallaxOn`,
-    /// `wrapperOn`, ...).
+    /// key the Go side accepts for Init overrides.
     Opts withRaw(string key, string value) const
     {
         Opts r;

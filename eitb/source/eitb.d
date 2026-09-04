@@ -3,12 +3,14 @@
 /// Subcommands:
 ///
 ///   eitb version                                   library + binding versions
-///   eitb hashes                                    shipped hash primitive roster
+///   eitb profiles                                  registered profile catalogue
 ///   eitb encrypt <profile> <in-file> <out-file>    Single Message encrypt
 ///   eitb decrypt <profile> <blob-hex> <in-file> <out-file>
 ///
 /// `encrypt` prints the session blob to stderr as hex; feed that hex
-/// back to `decrypt` on the receiving side.
+/// back to `decrypt` on the receiving side. `profiles` lists the
+/// registered profile catalogue one name per line; the profiles that
+/// carry a cipher surface are the ones `encrypt` / `decrypt` accept.
 module eitb;
 
 import std.algorithm : startsWith;
@@ -36,9 +38,9 @@ int main(string[] args)
                 if (args.length == 2)
                     return cmdVersion();
                 break;
-            case "hashes":
+            case "profiles":
                 if (args.length == 2)
-                    return cmdHashes();
+                    return cmdProfiles();
                 break;
             case "encrypt":
                 if (args.length == 5)
@@ -59,7 +61,7 @@ int main(string[] args)
         return 1;
     }
     stderr.writeln("usage: eitb version\n"
-        ~ "       eitb hashes\n"
+        ~ "       eitb profiles\n"
         ~ "       eitb encrypt <profile> <in-file> <out-file>\n"
         ~ "       eitb decrypt <profile> <blob-hex> <in-file> <out-file>");
     return 2;
@@ -69,6 +71,15 @@ int cmdVersion()
 {
     writeln("libitb ", libitbVersion());
     writeln("itb-d ", bindingVersion);
+    return 0;
+}
+
+// Prints the registered profile catalogue one name per line in the
+// sorted order `profiles` returns.
+int cmdProfiles()
+{
+    foreach (name; profiles())
+        writeln(name);
     return 0;
 }
 
@@ -97,7 +108,7 @@ int cmdEncrypt(string profile, string infile, string outfile)
         : pipe.encryptMessage(plain);
     ensureParentDir(outfile);
     write(outfile, wire);
-    stderr.writeln(hexEncode(pipe.blob));
+    stderr.writeln(hexEncode(pipe.save()));
     writefln("encrypted %s -> %s (%d -> %d bytes)",
         infile, outfile, plain.length, wire.length);
     return 0;
@@ -107,7 +118,9 @@ int cmdDecrypt(string profile, string blobHex, string infile, string outfile)
 {
     auto blob = hexDecode(blobHex);
     auto wire = cast(ubyte[]) read(infile);
-    auto pipe = Pipeline.open(profile, blob);
+    // The profile shape travels inside the blob; the profile argument
+    // only selects the Single Message or streaming cipher pair.
+    auto pipe = Pipeline.load(blob);
     auto plain = isStreamingProfile(profile)
         ? pipe.decryptStreamOneShot(wire)
         : pipe.decryptMessage(wire);
@@ -137,34 +150,4 @@ ubyte[] hexDecode(string s)
     foreach (i, ref b; outBuf)
         b = s[i * 2 .. i * 2 + 2].to!ubyte(16);
     return outBuf;
-}
-
-// ─── hashes — diagnostic registry iteration ────────────────────────
-//
-// The binding library deliberately exposes no primitive enumeration;
-// this CLI diagnostic declares the three iteration symbols itself so
-// the shipped roster can be inspected from the shell.
-
-private extern (C) @system @nogc nothrow
-{
-    int ITB_HashCount();
-    int ITB_HashName(int i, char* outBuf, size_t capBytes, size_t* outLen);
-    int ITB_HashWidth(int i);
-}
-
-int cmdHashes() @trusted
-{
-    immutable n = ITB_HashCount();
-    foreach (i; 0 .. n)
-    {
-        char[128] buf;
-        size_t len = 0;
-        immutable rc = ITB_HashName(i, &buf[0], buf.length, &len);
-        if (rc != 0)
-            throw new Exception(format("ITB_HashName(%d) failed with status %d", i, rc));
-        // len includes the trailing NUL.
-        immutable name = buf[0 .. len > 0 ? len - 1 : 0].idup;
-        writefln("%2d  %-12s %d bits", i, name, ITB_HashWidth(i));
-    }
-    return 0;
 }

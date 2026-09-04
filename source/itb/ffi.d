@@ -52,17 +52,41 @@ int ITB_Triple_Init(
     size_t* blobLen,
     size_t* outHandle);
 
-int ITB_Triple_Open(
-    const(char)* profile,
+int ITB_Triple_Load(
     const(void)* blob,
     size_t blobLen,
-    const(char)* opts,
     const(void)* permMaster,
     size_t permMasterLen,
     const(void)* wrapMaster,
     size_t wrapMasterLen,
     size_t mastersCount,
     size_t* outHandle);
+
+int ITB_Triple_LoadF(
+    const(char)* path,
+    const(void)* permMaster,
+    size_t permMasterLen,
+    const(void)* wrapMaster,
+    size_t wrapMasterLen,
+    size_t mastersCount,
+    size_t* outHandle);
+
+int ITB_Triple_Save(
+    size_t handle,
+    void* blobOut,
+    size_t blobCap,
+    size_t* blobLen);
+
+int ITB_Triple_SaveF(size_t handle, const(char)* path);
+
+int ITB_Triple_Inspect(
+    const(void)* blob,
+    size_t blobLen,
+    void* jsonOut,
+    size_t jsonCap,
+    size_t* jsonLen);
+
+int ITB_Triple_MaxWorkers(size_t handle, int n);
 
 int ITB_Triple_Rekey(
     size_t handle,
@@ -111,9 +135,15 @@ int ITB_Triple_DecryptMessage(
     size_t outCap,
     size_t* outLen);
 
-// ─── Profile registration ──────────────────────────────────────────
+// ─── Profile records ───────────────────────────────────────────────
 
-int ITB_Triple_RegisterProfile(const(char)* name, const(char)* opts);
+int ITB_Triple_Register(const(char)* name, const(char)* profileJSON);
+int ITB_Triple_Lookup(
+    const(char)* name,
+    void* jsonOut,
+    size_t jsonCap,
+    size_t* jsonLen);
+int ITB_Triple_Profiles(void* jsonOut, size_t jsonCap, size_t* jsonLen);
 
 // ─── Incremental stream sessions ───────────────────────────────────
 

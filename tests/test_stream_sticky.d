@@ -17,7 +17,7 @@ import itb;
 void main()
 {
     auto sender = Pipeline.create("streaming-aead-triple-mac-v1");
-    auto receiver = Pipeline.open("streaming-aead-triple-mac-v1", sender.blob);
+    auto receiver = Pipeline.load(sender.save());
 
     auto plain = new ubyte[65_536];
     foreach (i, ref b; plain)

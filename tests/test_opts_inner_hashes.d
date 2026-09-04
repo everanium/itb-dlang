@@ -1,7 +1,7 @@
 /// Per-call constellation override via the typed `withInnerHashes`
-/// helper: register a base width-512 profile, then Init / Open with
-/// an 8-entry width-512 alternate constellation and round-trip a
-/// Single Message.
+/// helper: Init a shipped width-512 profile with an 8-entry width-512
+/// alternate constellation, load the receiver from the blob, and
+/// round-trip a Single Message.
 module test_opts_inner_hashes;
 
 import std.stdio : writeln;
@@ -20,8 +20,7 @@ void main()
     ]);
 
     auto sender = Pipeline.create("singlemsg-triple-mac-v1", override_);
-    auto receiver = Pipeline.open(
-        "singlemsg-triple-mac-v1", sender.blob, override_);
+    auto receiver = Pipeline.load(sender.save());
     auto plain = cast(const(ubyte)[]) "mixed-hashes typed override round trip";
     auto wire = sender.encryptMessage(plain);
     assert(receiver.decryptMessage(wire) == plain);

@@ -21,7 +21,7 @@ void main()
     }
 
     // The Pipeline stays usable after the cancelled session.
-    auto receiver = Pipeline.open("streaming-aead-triple-mac-v1", sender.blob);
+    auto receiver = Pipeline.load(sender.save());
     auto plain = cast(const(ubyte)[]) "after cancel";
     auto wire = sender.encryptMessage(plain);
     assert(receiver.decryptMessage(wire) == plain);
