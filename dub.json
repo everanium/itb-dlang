@@ -1,0 +1,15 @@
+{
+    "name": "libitb3",
+    "version": "0.5.1",
+    "description": "ITB Symmetric Cipher Construction with Ambiguity-Based Security - D",
+    "license": "Apache-2.0",
+    "authors": ["Andrey Kuvshinov <andrew@encloud.blue>"],
+    "copyright": "Copyright (c) 2026 Andrey Kuvshinov",
+    "homepage": "https://github.com/everanium/itb",
+
+    "targetType": "library",
+    "targetName": "itb3_d",
+    "targetPath": "lib",
+    "sourcePaths": ["source"],
+    "importPaths": ["source"]
+}
