@@ -79,9 +79,9 @@ package(itb3) ubyte[] retryOnce(size_t cap,
 /// (Message / one-shot stream outputs). Same retry-once shape and P1
 /// guard; the buffer lives on the C heap inside the returned
 /// [BorrowedBytes], so bench-scale allocation churn never lands on
-/// the D GC heap (the collector's scan cost over fresh multi-MiB
-/// GC slices is what previously held D throughput at ~55% of native
-/// Go at 64 MB payloads).
+/// the D GC heap (without this, allocating fresh multi-MiB GC slices
+/// incurs collector scan overhead that reduces D throughput to ~55% of
+/// native Go at 64 MB payloads).
 package(itb3) BorrowedBytes retryOnceOwned(size_t cap,
         scope int delegate(ubyte[] buf, size_t* len) @system call) @trusted
 {
@@ -216,7 +216,7 @@ struct Pipeline
     /// Sets the worker cap for every subsequent cipher call. `n` is
     /// clamped by libitb3 (`<= 0` selects auto, `> 256` becomes 256);
     /// only the handle state is reported. The cap is per-machine and
-    /// never travels in the blob.
+    /// never written to the blob.
     void maxWorkers(int n) @trusted
     {
         check(ITB_Triple_MaxWorkers(handle, n));
@@ -368,6 +368,21 @@ string[] profiles() @trusted
 
     auto json = retryOnce(blobCap, (buf, len)
         => ITB_Triple_Profiles(buf.length ? &buf[0] : null, buf.length, len));
+    string[] names;
+    foreach (v; parseJSON(cast(string) json).array)
+        names ~= v.str;
+    return names;
+}
+
+/// Returns the shipped hash-primitive registry in canonical order.
+/// The registry is the authority on which names [Pipeline.create]
+/// accepts for the `innerHash` opts key.
+string[] hashNames() @trusted
+{
+    import std.json : parseJSON;
+
+    auto json = retryOnce(blobCap, (buf, len)
+        => ITB_Triple_HashNames(buf.length ? &buf[0] : null, buf.length, len));
     string[] names;
     foreach (v; parseJSON(cast(string) json).array)
         names ~= v.str;

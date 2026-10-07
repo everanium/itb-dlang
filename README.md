@@ -15,7 +15,7 @@ cipher-name / profile-name is an opaque string passed through to Go
 for validation; the binding carries no ITB construction logic. The
 public surface is one non-copyable `Pipeline` struct (`create` /
 `load` / `save` / `rekey` / `close`, Single Message encrypt /
-decrypt, whole-buffer and incremental stream sessions with slice
+decrypt, one-shot and incremental stream sessions with slice
 pumps), an `Opts` query-string builder for create-time overrides, the
 `Profile` record with `register` / `lookup` / `profiles` / `inspect`,
 and the Go runtime knobs.
@@ -95,6 +95,20 @@ The same rotation is available on the receiver side as a master
 override pair on `load`: `Pipeline.load(blob, perm[], wrap[])`
 reopens the blob with fresh masters folded in.
 
+`Pipeline.create` takes the role of the `init` constructor on the
+other bindings (`init` is a reserved property name in D). For
+streaming, `encryptStreamPump` / `decryptStreamPump` move a byte
+slice through an incremental session with a bounded feed / drain
+slice; the explicit `encryptStream` / `decryptStream` sessions expose
+`write` / `end` / `read` / `drainAll` for caller-driven loops.
+`Pipeline` and the stream sessions are non-copyable RAII structs —
+the destructor frees the Go-side handle, and a session must not
+outlive its Pipeline.
+
+Profile names, opts keys, and every primitive name are validated by
+the Go side; a rejected string surfaces as an `ItbException` carrying
+the status code plus the `ITB_LastError` diagnostic.
+
 ## Persisting sessions
 
 The blob returned by `save` is a self-describing session bundle: it
@@ -123,12 +137,10 @@ same name before opening. Attempting to `load` such a blob through
 this binding throws `ItbException` with
 `Status.RecipePrimitiveUnknown`.
 
-**Runtime tuning.** The worker cap is per-machine and never travels
-in the blob; the receiver may pick its own after `load`:
-
-```d
-receiver.maxWorkers(4);   // clamped by libitb3; <= 0 selects auto
-```
+**Runtime tuning.** `receiver.maxWorkers(n)` sets the worker cap for
+every subsequent cipher call (`n <= 0` selects auto, `n > 256` is
+clamped to 256); the receiver may pick its own worker cap after
+`load` — the cap is per-machine and never written to the blob.
 
 ## Profile registry
 
@@ -147,20 +159,6 @@ custom.outerCipher = "";
 register("my-nomac-plain", custom);
 assert(profiles().canFind("my-nomac-plain"));
 ```
-
-`Pipeline.create` takes the role of the `init` constructor on the
-other bindings (`init` is a reserved property name in D). For
-streaming, `encryptStreamPump` / `decryptStreamPump` move a byte
-slice through an incremental session with a bounded feed / drain
-slice; the explicit `encryptStream` / `decryptStream` sessions expose
-`write` / `end` / `read` / `drainAll` for caller-driven loops.
-`Pipeline` and the stream sessions are non-copyable RAII structs —
-the destructor frees the Go-side handle, and a session must not
-outlive its Pipeline.
-
-Profile names, opts keys, and every primitive name are validated by
-the Go side; a rejected string surfaces as an `ItbException` carrying
-the status code plus the `ITB_LastError` diagnostic.
 
 ## Memory
 
@@ -198,10 +196,13 @@ tree.
 ./bindings/dlang/run_bench.sh
 ```
 
-Micro-benches: `encryptMessage` and `encryptStreamPump` throughput at
-1 MiB / 16 MiB / 64 MiB, compiled `-O -inline -release`. The
-wall-clock budget per case is `ITB_BENCH_MIN_SEC` (default 5);
-`ITB_BENCH_MIN_SEC=1 ./run_bench.sh` gives a smoke run.
+Micro-benches: `encryptMessage`, `encryptStreamPump` and
+`encryptStreamOneShot` throughput at 1 MiB / 16 MiB / 64 MiB, compiled
+`-O -inline -release`. The wall-clock budget per case is
+`ITB_BENCH_MIN_SEC` (default 5); `ITB_BENCH_MIN_SEC=1 ./run_bench.sh`
+gives a smoke run. See
+[`bindings/BENCH.md`](https://github.com/everanium/itb/blob/main/bindings/BENCH.md)
+for the fleet-wide configuration authority and comparison tables.
 
 ## itb3 CLI
 
@@ -213,6 +214,26 @@ payloads directly on disk (`-i` / `-o`) or through stdin / stdout,
 rotates outer masters, and inspects stored blobs. See
 [`cmd/itb3/README.md`](https://github.com/everanium/itb/blob/main/cmd/itb3/README.md) for the full
 subcommand reference.
+
+## loop utility
+
+A long-run stress harness under `bindings/dlang/loop/` holds one
+Pipeline handle for minutes, cycles encrypt → decrypt → compare
+round-trips through it, rotates the outer masters and reopens the
+handle from its session blob on a schedule, and reports whether the
+process survived with every byte intact. It is the binding-side
+counterpart of the Go harness under `tools/loop`: same flags, same
+round structure, same summary in both renderings.
+
+```bash
+cd bindings/dlang && ./build.sh
+./run_loop.sh --duration 2m --shape both
+```
+
+`./loop/loop -h` lists every flag. Concurrency mode: **shared-handle** —
+druntime threads call into one Pipeline handle concurrently, which
+libitb3 permits once the handle is constructed, so `--goroutines` is
+the thread count verbatim.
 
 ## eitb utility
 
@@ -273,6 +294,18 @@ cipher pair.
   `--DRT-gcopt=parallel:N` or `rt_options` — the runtime-option
   parser sees the crt-constructor setting and the explicit
   override wins.
+- **Loading the D binding relocates druntime's stop-the-world
+  signals to `SIGRTMIN + 2` / `SIGRTMIN + 3`** (via a
+  `pragma(crt_constructor)` in `itb3.ffi`) and blocks both around
+  every call into libitb3. A thread inside such a call runs on a Go
+  goroutine stack, and a collector signal answered there corrupts Go
+  memory and faults the collector's stack scan; the Go runtime also
+  unconditionally unblocks `SIGRTMIN` on every thread that enters
+  it, which rules out blocking druntime's default numbers. The two
+  signal numbers are part of the binding's contract: an application
+  must neither call `thread_setGCSignals` itself nor use them for
+  its own purposes. A collection that starts while other threads
+  are inside libitb3 waits for those calls to return.
 
 ## License
 

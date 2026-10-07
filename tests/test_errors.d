@@ -3,6 +3,7 @@
 /// `hashes` constellation).
 module test_errors;
 
+import std.algorithm : canFind;
 import std.stdio : writeln;
 
 import itb3;
@@ -113,6 +114,17 @@ void main()
             cast(void) Pipeline.create("singlemsg-triple-mac-v1", opts);
         }, "opaque name relay");
         assert(e.status != Status.OK);
+    }
+
+    // An unknown DRBG name is RecipePrimitiveUnknown, and the
+    // diagnostic quotes the token.
+    {
+        auto opts = Opts().withDrbg("nope");
+        auto e = expectThrow({
+            cast(void) Pipeline.create("singlemsg-triple-mac-v1", opts);
+        }, "unknown drbg name");
+        assert(e.status == Status.RecipePrimitiveUnknown);
+        assert(e.msg.canFind("nope"), e.msg);
     }
 
     writeln("PASS test_errors");

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 #
-# build.sh -- one-step build for the D binding: libitb3.so + dub build
-# of the binding library + the eitb CLI. Prerequisites (Go, dmd /
-# ldc2, dub) must be installed separately; see README.md
-# "Prerequisites" section.
+# One-step build for the D binding: libitb3.so + dub build of the
+# binding library + the eitb CLI + the loop stress harness. Prerequisites (Go, dmd / ldc2, dub)
+# must be installed separately; see README.md "Prerequisites" section.
 #
 # Every artefact this binding owns is removed first, so nothing the
 # build produces can be a leftover from an earlier invocation.
@@ -45,6 +44,7 @@ CLEAN_TARGETS=(
     bench/results         # bench output
     eitb/bin              # eitb output directory
     eitb/eitb             # eitb CLI
+    loop/loop             # loop stress harness
     __test__library__     # dub test runner binary
     itb-binding
     itb-test-runner
@@ -54,6 +54,7 @@ CLEAN_TARGETS=(
 )
 CLEAN_GLOBS=(
     'eitb/*.o'            # compiler object dropped beside the CLI
+    'loop/*.o'            # and beside the stress harness
 )
 
 clean_artefacts() {
@@ -118,6 +119,11 @@ dub build --compiler="$COMPILER" "${DUB_FORCE[@]}"
 echo "==> building eitb CLI"
 "$COMPILER" -w -O -inline -I=source -of=eitb/eitb \
     eitb/source/eitb.d source/itb3/*.d \
+    -L-L"$DIST_DIR" -L-litb3 "-L-rpath=$DIST_DIR"
+
+echo "==> building loop stress harness"
+"$COMPILER" -w -O -inline -I=. -I=source -of=loop/loop \
+    loop/*.d source/itb3/*.d \
     -L-L"$DIST_DIR" -L-litb3 "-L-rpath=$DIST_DIR"
 
 echo "==> ready: ./run_tests.sh"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# run_tests.sh -- Compile and run every D test program under tests/.
+# Compile and run every D test program under tests/.
 #
 # Each tests/test_*.d is compiled to its own standalone executable in
 # tests/build/, then run in turn. Per-process isolation gives every

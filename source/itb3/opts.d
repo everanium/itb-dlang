@@ -101,6 +101,11 @@ struct Opts
         return withRaw("outerCipher", name);
     }
 
+    Opts withDrbg(string name) const
+    {
+        return withRaw("drbg", name);
+    }
+
     /// Comma-joins the palette names (`parallaxPalette`).
     Opts withParallaxPalette(scope const(string)[] names) const
     {
@@ -189,12 +194,13 @@ private string hex(scope const(ubyte)[] bytes)
         .withMacName("hmac-blake3")
         .withInnerHash("areion512")
         .withOuterCipher("chacha20")
+        .withDrbg("csprng")
         .withParallaxPalette(["aescmac", "chacha20", "blake3"])
         .build();
     assert(q == "pm=ab01&wm=cdef&withParallax=true&withWrapper=false&"
         ~ "maxWorkers=4&nonceBits=512&barrierFill=4&chunkSize=4096&"
         ~ "keyBits=1024&parallaxSegmentSize=65536&macName=hmac-blake3&"
-        ~ "innerHash=areion512&outerCipher=chacha20&"
+        ~ "innerHash=areion512&outerCipher=chacha20&drbg=csprng&"
         ~ "parallaxPalette=aescmac,chacha20,blake3");
 }
 

@@ -5,11 +5,10 @@ import itb3.ffi;
 import itb3.status;
 
 /// Thrown when libitb3 returns a non-OK status. `status` carries the
-/// structural code; the message appends the `ITB_LastError`
-/// diagnostic captured immediately after the failing call
-/// (errno-style last-write-wins — the text may belong to a different
-/// call under concurrent FFI use; the status code is always
-/// attributable).
+/// structural code; the message is the `ITB_LastError` diagnostic
+/// captured immediately after the failing call (errno-style
+/// last-write-wins — the text may belong to a different call under
+/// concurrent FFI use; the status code is always attributable).
 class ItbException : Exception
 {
     /// The libitb3 status code of the failing call.
@@ -21,10 +20,7 @@ class ItbException : Exception
         import std.format : format;
 
         status = st;
-        auto msg = diagnostic.length == 0
-            ? format("itb: status=%d (%s)", cast(int) st, statusLabel(st))
-            : format("itb: status=%d (%s): %s", cast(int) st, statusLabel(st), diagnostic);
-        super(msg, file, line);
+        super(format("itb: status=%d: %s", cast(int) st, diagnostic), file, line);
     }
 }
 

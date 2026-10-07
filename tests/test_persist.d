@@ -54,6 +54,7 @@ void main()
         auto recipe = prof;
         recipe.nonceBits.nullify();
         recipe.barrierFill.nullify();
+        recipe.containerMode.nullify();
         assert(recipe == lookup("singlemsg-triple-mac-v1"));
     }
 
@@ -125,6 +126,49 @@ void main()
         auto receiver = Pipeline.load(sender.save());
         receiver.maxWorkers(1);
         roundTrip(sender, receiver, "workers");
+    }
+
+    // The DRBG choice round-trips and travels in the blob as a
+    // recipe field: inspect reports it, and the JSON carries it.
+    foreach (drbgName; ["csprng", "aesitb128"])
+    {
+        auto drbgSender = Pipeline.create("singlemsg-triple-mac-v1",
+                Opts().withDrbg(drbgName));
+        auto drbgBlob = drbgSender.save();
+        auto receiver = Pipeline.load(drbgBlob);
+        roundTrip(drbgSender, receiver, "drbg " ~ drbgName);
+        roundTrip(receiver, drbgSender, "drbg reply " ~ drbgName);
+        auto drbgProf = inspect(drbgBlob);
+        assert(drbgProf.drbg == drbgName);
+        assert(drbgProf.toJson().canFind(`"drbg":"` ~ drbgName ~ `"`));
+    }
+    {
+        // Default: neither the inspected record nor the registry
+        // entry carries the key.
+        auto defaultProf = inspect(blob);
+        assert(defaultProf.drbg.length == 0);
+        assert(!defaultProf.toJson().canFind("drbg"));
+        auto registry = lookup("singlemsg-triple-mac-v1");
+        assert(registry.drbg.length == 0);
+        assert(!registry.toJson().canFind("drbg"));
+    }
+    {
+        // A registered copy of an inspected record keeps drbg; the
+        // name and the inspection-only fields are cleared.
+        auto drbgSender = Pipeline.create("singlemsg-triple-mac-v1",
+                Opts().withDrbg("csprng"));
+        auto copy = inspect(drbgSender.save());
+        copy.name = "";
+        copy.nonceBits.nullify();
+        copy.barrierFill.nullify();
+        copy.containerMode.nullify();
+        register("dlang-binding-test-drbg-copy", copy);
+        auto back = lookup("dlang-binding-test-drbg-copy");
+        assert(back.drbg == "csprng");
+        assert(back.toJson().canFind(`"drbg":"csprng"`));
+        auto copySender = Pipeline.create("dlang-binding-test-drbg-copy");
+        auto receiver = Pipeline.load(copySender.save());
+        roundTrip(copySender, receiver, "registered drbg");
     }
 
     writeln("PASS test_persist");

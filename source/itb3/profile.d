@@ -16,13 +16,13 @@ import std.typecons : Nullable;
 /// profile JSON object; optional keys are omitted when empty / zero
 /// and decode as their defaults when absent.
 ///
-/// `nonceBits` and `barrierFill` are inspection-only: they are not
-/// part of the profile recipe, stay null on a record from
+/// `nonceBits`, `barrierFill` and `containerMode` are inspection-only:
+/// they are not part of the profile recipe, stay null on a record from
 /// [itb3.pipeline.lookup] or built by hand, and are populated only on
 /// a record from [itb3.pipeline.inspect], where libitb3 reads them from
-/// the blob's runtime globals snapshot. libitb3 rejects a `register`
-/// payload that carries either key, so clear both before handing an
-/// inspected record to [itb3.pipeline.register].
+/// the blob's inner snapshot. libitb3 rejects a `register` payload that
+/// carries any of the keys, so clear them before handing an inspected
+/// record to [itb3.pipeline.register].
 struct Profile
 {
     /// Registry label. Empty on a record built by hand; filled by
@@ -48,6 +48,12 @@ struct Profile
     /// DRBG barrier fill margin, read from the blob's runtime
     /// globals. Same inspection-only lifecycle as `nonceBits`.
     Nullable!long barrierFill;
+    /// Container floor sizing mode, read from the blob's inner mode
+    /// field: 1 per-region, 2 per-container. Same inspection-only
+    /// lifecycle as `nonceBits`.
+    Nullable!long containerMode;
+    /// DRBG fill primitive name; empty for the auto tier.
+    string drbg;
     /// MAC name; empty for No MAC modes.
     string macName;
     /// MAC tag stub size; 0 for the profile default.
@@ -78,6 +84,8 @@ struct Profile
         p.keyBits = num(v, "keybits");
         p.nonceBits = optNum(v, "nonce_bits");
         p.barrierFill = optNum(v, "barrier_fill");
+        p.containerMode = optNum(v, "container_mode");
+        p.drbg = str(v, "drbg");
         p.macName = str(v, "mac");
         p.tagStubSize = num(v, "tagstub");
         p.chunkSize = num(v, "chunk");
@@ -101,6 +109,8 @@ struct Profile
         v["keybits"] = keyBits;
         if (!nonceBits.isNull) v["nonce_bits"] = nonceBits.get;
         if (!barrierFill.isNull) v["barrier_fill"] = barrierFill.get;
+        if (!containerMode.isNull) v["container_mode"] = containerMode.get;
+        if (drbg.length) v["drbg"] = drbg;
         if (macName.length) v["mac"] = macName;
         if (tagStubSize) v["tagstub"] = tagStubSize;
         if (chunkSize) v["chunk"] = chunkSize;

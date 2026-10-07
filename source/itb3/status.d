@@ -60,38 +60,3 @@ Status statusFromRc(int rc)
         return Status.Internal;
     }
 }
-
-/// Short human-readable label for a status code.
-string statusLabel(Status st)
-{
-    final switch (st)
-    {
-    case Status.OK:                return "ok";
-    case Status.BadHash:           return "unknown hash name";
-    case Status.BadKeyBits:        return "invalid key bits";
-    case Status.BadHandle:         return "invalid handle";
-    case Status.BadInput:          return "invalid input";
-    case Status.BufferTooSmall:    return "output buffer too small";
-    case Status.EncryptFailed:     return "encrypt failed";
-    case Status.DecryptFailed:     return "decrypt failed";
-    case Status.SeedWidthMix:      return "seed width mismatch";
-    case Status.BadMAC:            return "unknown MAC name or invalid MAC handle";
-    case Status.MACFailure:        return "MAC verification failed";
-    case Status.BlobMalformedRecipe:    return "blob recipe malformed";
-    case Status.RecipePrimitiveUnknown: return "blob recipe names an unknown primitive";
-    case Status.UnknownProfile:         return "unknown profile name";
-    case Status.Reserved14:
-    case Status.Reserved15:
-    case Status.Reserved16:
-    case Status.Reserved17:        return "reserved status";
-    case Status.BlobModeMismatch:  return "blob mode mismatch";
-    case Status.BlobMalformed:     return "malformed state blob";
-    case Status.BlobVersionTooNew: return "blob version too new";
-    case Status.BlobTooManyOpts:   return "too many blob export opts";
-    case Status.StreamTruncated:   return "stream truncated before terminator";
-    case Status.StreamAfterFinal:  return "stream chunk after terminator";
-    case Status.TripleClosed:      return "Triple Pipeline is closed";
-    case Status.ProfileExists:     return "profile name already registered";
-    case Status.Internal:          return "internal error";
-    }
-}

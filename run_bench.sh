@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# run_bench.sh -- micro-benchmark runner for the D binding. Builds
-# libitb3.so + the binding via build.sh, then compiles and runs the
-# benches/bench_*.d binaries: encryptMessage, encryptStreamPump, and
+# Micro-benchmark runner for the D binding. Builds libitb3.so + the
+# binding via build.sh, then compiles and runs the benches/bench_*.d
+# binaries: encryptMessage, encryptStreamPump, and
 # encryptStreamOneShot throughput at 1 MiB / 16 MiB / 64 MiB.
 #
 # Usage:
