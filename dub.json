@@ -1,6 +1,6 @@
 {
     "name": "libitb3",
-    "version": "0.5.1",
+    "version": "0.5.5",
     "description": "ITB Symmetric Cipher Construction with Ambiguity-Based Security - D",
     "license": "Apache-2.0",
     "authors": ["Andrey Kuvshinov <andrew@encloud.blue>"],

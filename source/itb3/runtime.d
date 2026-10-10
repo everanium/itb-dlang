@@ -6,7 +6,7 @@ import itb3.ffi;
 
 /// Version of the D binding itself. The libitb3 version is read at
 /// run time via [libitb3Version].
-enum bindingVersion = "0.5.1";
+enum bindingVersion = "0.5.5";
 
 /// Sets the Go runtime's soft heap limit in bytes and returns the
 /// previous limit. A negative value queries without changing.
