@@ -18,6 +18,13 @@ struct Opts
 {
     private string[2][] pairs;
 
+    /// Container floor sizing mode override (`mode`): 0 defers to default,
+    /// 1 pins per-region, 2 selects per-container compact VPN sizing.
+    Opts withMode(long n) const
+    {
+        return withRaw("mode", dec(n));
+    }
+
     /// Hex-encodes the parallax master override (`pm`).
     Opts withPermMaster(scope const(ubyte)[] master) const
     {
@@ -181,6 +188,7 @@ private string hex(scope const(ubyte)[] bytes)
 {
     // Typed setters render the expected keys in insertion order.
     auto q = Opts()
+        .withMode(2)
         .withPermMaster([0xab, 0x01])
         .withWrapMaster([0xcd, 0xef])
         .withParallax(true)
@@ -197,7 +205,7 @@ private string hex(scope const(ubyte)[] bytes)
         .withDrbg("csprng")
         .withParallaxPalette(["aescmac", "chacha20", "blake3"])
         .build();
-    assert(q == "pm=ab01&wm=cdef&withParallax=true&withWrapper=false&"
+    assert(q == "mode=2&pm=ab01&wm=cdef&withParallax=true&withWrapper=false&"
         ~ "maxWorkers=4&nonceBits=512&barrierFill=4&chunkSize=4096&"
         ~ "keyBits=1024&parallaxSegmentSize=65536&macName=hmac-blake3&"
         ~ "innerHash=areion512&outerCipher=chacha20&drbg=csprng&"

@@ -75,7 +75,7 @@ aliasing. The resolved shape travels inside the blob, so the receiver
 needs no options of its own:
 
 ```d
-auto opts = Opts().withChunkSize(65536).withWrapper(false).withMaxWorkers(4);
+auto opts = Opts().withMode(2).withChunkSize(65536).withWrapper(false).withMaxWorkers(4);
 auto sender = Pipeline.create("singlemsg-triple-mac-v1", opts);
 auto receiver = Pipeline.load(sender.save());
 ```

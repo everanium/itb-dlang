@@ -718,33 +718,6 @@ private void logPipelineInitialised(string profile, scope const(ubyte)[] blob) @
     logLine(line);
 }
 
-/// Sets the inner blob's "mode" field of a wrap-layer session blob to
-/// `targetMode` (1 = per-region, 2 = per-container) in place. The wrap
-/// layer's profile record carries its own "mode" (a string), so the
-/// search starts at the inner blob ("ib"); both shipped modes are one
-/// digit wide, so the blob length does not change. Returns false when
-/// the inner blob or its mode field is not found.
-private bool editInnerBlobMode(ubyte[] blob, int targetMode) @safe
-{
-    import std.algorithm.searching : countUntil;
-
-    immutable ubyte[] ibKey = cast(immutable(ubyte)[]) `"ib":{`;
-    immutable ubyte[] modeKey = cast(immutable(ubyte)[]) `"mode":`;
-    immutable ib = blob.countUntil(ibKey);
-    if (ib < 0)
-        return false;
-    immutable off = ib + ibKey.length;
-    immutable mode = blob[off .. $].countUntil(modeKey);
-    if (mode < 0)
-        return false;
-    immutable at = off + mode + modeKey.length;
-    if (at + 1 >= blob.length || blob[at] < '1' || blob[at] > '2'
-            || (blob[at + 1] >= '0' && blob[at + 1] <= '9'))
-        return false;
-    blob[at] = cast(ubyte)('0' + targetMode);
-    return true;
-}
-
 /// Constructs one Pipeline against `profile` with every flag-carried
 /// override in the opts string (zero values included — the shared
 /// library treats zero as "profile default"), then obtains the Init
@@ -755,6 +728,7 @@ private bool buildPipeline(const ref Config cfg, string profile,
         ref Pipeline pipe, ref bool present, ref ubyte[] blob) @trusted
 {
     auto opts = Opts()
+        .withMode(cfg.blobMode)
         .withInnerHash(cfg.hash)
         .withMacName(cfg.mac)
         .withParallax(cfg.parallax)
@@ -788,30 +762,6 @@ private bool buildPipeline(const ref Config cfg, string profile,
     {
         errLine(format("Save(%s): %s", profile, detail(e)));
         return false;
-    }
-    if (cfg.blobMode == 2)
-    {
-        import std.algorithm.mutation : move;
-
-        // The sizing mode is not an Opts knob: the Init blob is edited
-        // and the pipeline reopened from it, so the retained blob (the
-        // one blob-cycle reopens from) carries the edited mode.
-        if (!editInnerBlobMode(blob, 2))
-        {
-            errLine("rewrite blob mode: inner blob mode field not found");
-            return false;
-        }
-        try
-        {
-            // D-specific. The move-assignment releases the Init handle.
-            auto fresh = Pipeline.load(blob);
-            pipe = move(fresh);
-        }
-        catch (ItbException e)
-        {
-            errLine(format("reload Mode 2 blob: %s", detail(e)));
-            return false;
-        }
     }
     logPipelineInitialised(profile, blob);
     return true;
