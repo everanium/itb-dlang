@@ -14,7 +14,7 @@ toolchain's own linker driver. Every hash-name / MAC-name /
 cipher-name / profile-name is an opaque string passed through to Go
 for validation; the binding carries no ITB construction logic. The
 public surface is one non-copyable `Pipeline` struct (`create` /
-`load` / `save` / `rekey` / `close`, Single Message encrypt /
+`createKeys` / `load` / `save` / `rekey` / `close`, Single Message encrypt /
 decrypt, one-shot and incremental stream sessions with slice
 pumps), an `Opts` query-string builder for create-time overrides, the
 `Profile` record with `register` / `lookup` / `profiles` / `inspect`,
@@ -79,6 +79,8 @@ auto opts = Opts().withMode(2).withChunkSize(65536).withWrapper(false).withMaxWo
 auto sender = Pipeline.create("singlemsg-triple-mac-v1", opts);
 auto receiver = Pipeline.load(sender.save());
 ```
+
+`Pipeline.createKeys` constructs a Pipeline from caller-supplied master keys (8 for MAC profiles, 7 for No-MAC profiles, plus optional Parallax and Wrapper masters; each >= 16 bytes and pairwise distinct) instead of sampling fresh entropy via `create`.
 
 `Pipeline.rekey` rotates the parallax + wrapper masters mid-session
 (the eight ITB seeds and MAC key are fixed for the session lifetime

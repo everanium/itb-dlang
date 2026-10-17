@@ -146,6 +146,57 @@ struct Pipeline
         return p;
     }
 
+    /// Constructs a Pipeline from caller-supplied master keys (8 for
+    /// MAC profiles, 7 for No-MAC profiles, plus optional Parallax and
+    /// Wrapper masters). Key counts, lengths, and pairwise distinctness
+    /// are validated by libitb3.
+    static Pipeline createKeys(string profile,
+            scope const(const(ubyte)[])[] masters) @trusted
+    {
+        return createKeys(profile, Opts(), masters);
+    }
+
+    /// Overload of [Pipeline.createKeys] accepting create-time [Opts].
+    static Pipeline createKeys(string profile, const Opts opts,
+            scope const(const(ubyte)[])[] masters) @trusted
+    {
+        import core.stdc.string : memcpy, memset;
+        import std.string : toStringz;
+
+        auto profileC = profile.toStringz;
+        auto optsC = opts.build().toStringz;
+
+        size_t flatLen = 0;
+        foreach (m; masters)
+            flatLen += m.length;
+
+        auto flat = new ubyte[flatLen];
+        scope (exit)
+        {
+            if (flat.length)
+                memset(&flat[0], 0, flat.length);
+        }
+        auto lens = new size_t[masters.length];
+        size_t off = 0;
+        foreach (i, m; masters)
+        {
+            lens[i] = m.length;
+            if (m.length)
+            {
+                memcpy(&flat[off], &m[0], m.length);
+                off += m.length;
+            }
+        }
+
+        Pipeline p;
+        cast(void) retryOnce(blobCap, (buf, len)
+            => ITB_Triple_InitKeys(profileC, optsC,
+                flat.length ? &flat[0] : null, flat.length,
+                lens.length ? &lens[0] : null, masters.length,
+                buf.length ? &buf[0] : null, buf.length, len, &p.handle));
+        return p;
+    }
+
     /// Reconstructs a Pipeline from a blob produced by [Pipeline.save]
     /// or [Pipeline.rekey]. Pass empty `perm` / `wrap` to use the
     /// blob-embedded masters; supply both to override them (the pair

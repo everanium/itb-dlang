@@ -157,6 +157,18 @@ pragma(mangle, "ITB_Triple_Init") int raw_ITB_Triple_Init(
     size_t* blobLen,
     size_t* outHandle);
 
+pragma(mangle, "ITB_Triple_InitKeys") int raw_ITB_Triple_InitKeys(
+    const(char)* profile,
+    const(char)* opts,
+    const(void)* mastersFlat,
+    size_t mastersFlatLen,
+    const(size_t)* masterLens,
+    size_t mastersCount,
+    void* blobOut,
+    size_t blobCap,
+    size_t* blobLen,
+    size_t* outHandle);
+
 pragma(mangle, "ITB_Triple_Load") int raw_ITB_Triple_Load(
     const(void)* blob,
     size_t blobLen,
@@ -357,6 +369,25 @@ int ITB_Triple_Init(
     auto guard = GcSignalGuard.enter();
     scope (exit) guard.leave();
     return raw_ITB_Triple_Init(profile, opts, blobOut, blobCap, blobLen, outHandle);
+}
+
+pragma(mangle, "itb_binding_guarded_ITB_Triple_InitKeys")
+int ITB_Triple_InitKeys(
+    const(char)* profile,
+    const(char)* opts,
+    const(void)* mastersFlat,
+    size_t mastersFlatLen,
+    const(size_t)* masterLens,
+    size_t mastersCount,
+    void* blobOut,
+    size_t blobCap,
+    size_t* blobLen,
+    size_t* outHandle)
+{
+    auto guard = GcSignalGuard.enter();
+    scope (exit) guard.leave();
+    return raw_ITB_Triple_InitKeys(profile, opts, mastersFlat, mastersFlatLen,
+        masterLens, mastersCount, blobOut, blobCap, blobLen, outHandle);
 }
 
 pragma(mangle, "itb_binding_guarded_ITB_Triple_Load")
