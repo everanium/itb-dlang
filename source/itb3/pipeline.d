@@ -60,18 +60,31 @@ private size_t outCap(size_t payload) @safe pure nothrow @nogc
 /// The buffer is GC-managed because the blob is small (64 KiB floor),
 /// long-lived, and freely aliasable. Cipher outputs go through
 /// [retryOnceOwned] instead, which keeps the hot path off the GC heap.
+private void wipeBytes(scope ubyte[] buf) @trusted nothrow @nogc
+{
+    import core.volatile : volatileStore;
+
+    foreach (ref b; buf)
+        volatileStore(&b, ubyte(0));
+}
+
 package(itb3) ubyte[] retryOnce(size_t cap,
         scope int delegate(ubyte[] buf, size_t* len) @system call) @trusted
 {
     auto buf = new ubyte[cap];
+    scope (failure)
+        wipeBytes(buf);
     size_t len = 0;
     int rc = call(buf, &len);
     if (rc == Status.BufferTooSmall && len > cap)
     {
+        wipeBytes(buf);
         buf = new ubyte[len];
         rc = call(buf, &len);
     }
     check(rc);
+    if (len < buf.length)
+        wipeBytes(buf[len .. $]);
     return buf[0 .. len];
 }
 
@@ -140,9 +153,10 @@ struct Pipeline
         auto profileC = profile.toStringz;
         auto optsC = opts.build().toStringz;
         Pipeline p;
-        cast(void) retryOnce(blobCap, (buf, len)
+        auto blob = retryOnce(blobCap, (buf, len)
             => ITB_Triple_Init(profileC, optsC,
                 buf.length ? &buf[0] : null, buf.length, len, &p.handle));
+        wipeBytes(blob);
         return p;
     }
 
@@ -172,10 +186,7 @@ struct Pipeline
 
         auto flat = new ubyte[flatLen];
         scope (exit)
-        {
-            if (flat.length)
-                memset(&flat[0], 0, flat.length);
-        }
+            wipeBytes(flat);
         auto lens = new size_t[masters.length];
         size_t off = 0;
         foreach (i, m; masters)
@@ -189,11 +200,12 @@ struct Pipeline
         }
 
         Pipeline p;
-        cast(void) retryOnce(blobCap, (buf, len)
+        auto blob = retryOnce(blobCap, (buf, len)
             => ITB_Triple_InitKeys(profileC, optsC,
                 flat.length ? &flat[0] : null, flat.length,
                 lens.length ? &lens[0] : null, masters.length,
                 buf.length ? &buf[0] : null, buf.length, len, &p.handle));
+        wipeBytes(blob);
         return p;
     }
 
