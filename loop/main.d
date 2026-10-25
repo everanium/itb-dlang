@@ -145,6 +145,7 @@ private struct RawFlags
     int gomaxprocs = 0;
     int goroutines = 3;
     string hash = "areion512";
+    string interlock = "";
     long iterations = 0;
     bool jsonOutput = false;
     int keyBits = 0;
@@ -258,6 +259,8 @@ private Flag[] flagTable(ref RawFlags f) @trusted
     addInt("goroutines", &f.goroutines,
             "concurrent workers (1..10); on runtimes without parallelism values above 1 are clamped to 1");
     addString("hash", "string", &f.hash, "inner ITB hash primitive name");
+    addString("interlock", "string", &f.interlock,
+            "Interlocked Barrier chunk width: 48 | 168; empty = profile default (48; 168 requires 512-bit hash)");
     addLong("iterations", &f.iterations,
             "fixed per-worker iteration count; 0 = duration-based");
     addBool("json-output", &f.jsonOutput,
@@ -626,6 +629,18 @@ private int parseFlags(string[] argv, ref Config cfg) @safe
         return -1;
     }
     cfg.drbg = f.drbg; // validated by Init: the C ABI enumerates no DRBG names
+    cfg.interlock = f.interlock;
+    switch (cfg.interlock)
+    {
+    case "":
+    case "48":
+    case "168":
+        break;
+    default:
+        errLine(format("--interlock must be 48 | 168 (or empty = profile default), got \"%s\"",
+                cfg.interlock));
+        return -1;
+    }
     if (!parseSize(f.chunkSize, cfg.chunkSize))
     {
         errLine(format("--chunk-size: invalid size \"%s\"", f.chunkSize));
@@ -715,6 +730,8 @@ private void logPipelineInitialised(string profile, scope const(ubyte)[] blob) @
         line ~= " container-mode=2";
     if (record.drbg.length)
         line ~= " drbg=" ~ record.drbg;
+    if (record.interlock.length)
+        line ~= " interlock=" ~ record.interlock;
     logLine(line);
 }
 
@@ -737,6 +754,7 @@ private bool buildPipeline(const ref Config cfg, string profile,
         .withNonceBits(cfg.nonceBits)
         .withBarrierFill(cfg.barrierFill)
         .withDrbg(cfg.drbg)
+        .withInterlock(cfg.interlock)
         .withChunkSize(cfg.chunkSize);
     if (cfg.profile.length)
     {
@@ -831,7 +849,8 @@ private int run(string[] argv) @trusted
             payloadModeName(cfg.payloadMode), cfg.seed,
             cfg.jsonOutput ? "true" : "false")
             ~ (cfg.blobMode != 1 ? format(" blob-mode=%d", cfg.blobMode) : "")
-            ~ (cfg.drbg.length ? " drbg=" ~ cfg.drbg : ""));
+            ~ (cfg.drbg.length ? " drbg=" ~ cfg.drbg : "")
+            ~ (cfg.interlock.length ? " interlock=" ~ cfg.interlock : ""));
     logLine(format("policy: microbatch-tiers=%s hashpool-starters=%s",
             policyLabel("ITB_MICROBATCH_TIERS"), policyLabel("ITB_HASHPOOL_STARTERS")));
 

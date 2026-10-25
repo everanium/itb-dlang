@@ -25,6 +25,13 @@ struct Opts
         return withRaw("mode", dec(n));
     }
 
+    /// Interlocked Barrier chunk width override (`interlock`):
+    /// `"48"` or `"168"`, `""` for the profile default (48-bit).
+    Opts withInterlock(string width) const
+    {
+        return withRaw("interlock", width);
+    }
+
     /// Hex-encodes the parallax master override (`pm`).
     Opts withPermMaster(scope const(ubyte)[] master) const
     {
@@ -189,6 +196,7 @@ private string hex(scope const(ubyte)[] bytes)
     // Typed setters render the expected keys in insertion order.
     auto q = Opts()
         .withMode(2)
+        .withInterlock("168")
         .withPermMaster([0xab, 0x01])
         .withWrapMaster([0xcd, 0xef])
         .withParallax(true)
@@ -205,7 +213,7 @@ private string hex(scope const(ubyte)[] bytes)
         .withDrbg("csprng")
         .withParallaxPalette(["aescmac", "chacha20", "blake3"])
         .build();
-    assert(q == "mode=2&pm=ab01&wm=cdef&withParallax=true&withWrapper=false&"
+    assert(q == "mode=2&interlock=168&pm=ab01&wm=cdef&withParallax=true&withWrapper=false&"
         ~ "maxWorkers=4&nonceBits=512&barrierFill=4&chunkSize=4096&"
         ~ "keyBits=1024&parallaxSegmentSize=65536&macName=hmac-blake3&"
         ~ "innerHash=areion512&outerCipher=chacha20&drbg=csprng&"

@@ -176,5 +176,60 @@ void main()
         roundTrip(copySender, receiver, "registered drbg");
     }
 
+    // Interlock 168-bit chunk width round-trips on a 512-bit profile
+    // and travels in the blob as a recipe field; 256-bit hashes and
+    // unknown widths are rejected with Status.BadInput.
+    {
+        auto ilSender = Pipeline.create("singlemsg-triple-mac-v1",
+                Opts().withInterlock("168"));
+        auto ilBlob = ilSender.save();
+        auto receiver = Pipeline.load(ilBlob);
+        roundTrip(ilSender, receiver, "interlock 168");
+        roundTrip(receiver, ilSender, "interlock 168 reply");
+        auto ilProf = inspect(ilBlob);
+        assert(ilProf.interlock == "168");
+        assert(ilProf.toJson().canFind(`"interlock":"168"`));
+
+        auto defaultProf = inspect(blob);
+        assert(defaultProf.interlock.length == 0);
+        assert(!defaultProf.toJson().canFind("interlock"));
+        auto registry = lookup("singlemsg-triple-mac-v1");
+        assert(registry.interlock.length == 0);
+        assert(!registry.toJson().canFind("interlock"));
+
+        auto copy = ilProf;
+        copy.name = "";
+        copy.nonceBits.nullify();
+        copy.barrierFill.nullify();
+        copy.containerMode.nullify();
+        register("dlang-binding-test-interlock-copy", copy);
+        auto back = lookup("dlang-binding-test-interlock-copy");
+        assert(back.interlock == "168");
+        assert(back.toJson().canFind(`"interlock":"168"`));
+        auto copySender = Pipeline.create("dlang-binding-test-interlock-copy");
+        auto copyReceiver = Pipeline.load(copySender.save());
+        roundTrip(copySender, copyReceiver, "registered interlock");
+    }
+    try
+    {
+        cast(void) Pipeline.create("singlemsg-triple-mac-v1",
+                Opts().withInnerHash("blake3").withInterlock("168"));
+        assert(false, "interlock 168 on 256-bit hash must throw");
+    }
+    catch (ItbException e)
+    {
+        assert(e.status == Status.BadInput);
+    }
+    try
+    {
+        cast(void) Pipeline.create("singlemsg-triple-mac-v1",
+                Opts().withInterlock("96"));
+        assert(false, "interlock 96 must throw");
+    }
+    catch (ItbException e)
+    {
+        assert(e.status == Status.BadInput);
+    }
+
     writeln("PASS test_persist");
 }

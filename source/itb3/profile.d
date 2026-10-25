@@ -54,6 +54,9 @@ struct Profile
     Nullable!long containerMode;
     /// DRBG fill primitive name; empty for the auto tier.
     string drbg;
+    /// Interlocked Barrier chunk width ("48" | "168"); empty for the
+    /// 48-bit default.
+    string interlock;
     /// MAC name; empty for No MAC modes.
     string macName;
     /// MAC tag stub size; 0 for the profile default.
@@ -86,6 +89,7 @@ struct Profile
         p.barrierFill = optNum(v, "barrier_fill");
         p.containerMode = optNum(v, "container_mode");
         p.drbg = str(v, "drbg");
+        p.interlock = str(v, "interlock");
         p.macName = str(v, "mac");
         p.tagStubSize = num(v, "tagstub");
         p.chunkSize = num(v, "chunk");
@@ -111,6 +115,7 @@ struct Profile
         if (!barrierFill.isNull) v["barrier_fill"] = barrierFill.get;
         if (!containerMode.isNull) v["container_mode"] = containerMode.get;
         if (drbg.length) v["drbg"] = drbg;
+        if (interlock.length) v["interlock"] = interlock;
         if (macName.length) v["mac"] = macName;
         if (tagStubSize) v["tagstub"] = tagStubSize;
         if (chunkSize) v["chunk"] = chunkSize;

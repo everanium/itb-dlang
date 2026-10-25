@@ -68,14 +68,16 @@ auto plain = receiver.decryptMessage(wire);
 assert(plain == cast(const(ubyte)[]) "any text or binary data");
 ```
 
-`Opts` overrides the profile default at create (chunk size, outer
+`Opts` overrides the profile default at create (container mode,
+interlock chunk width `"48"` | `"168"` where `""` selects the 48-bit
+default and `"168"` requires a 512-bit hash, chunk size, outer
 cipher, parallax on/off, wrapper on/off, MAC name, palette, worker
 cap); every setter returns a fresh value that composes without
 aliasing. The resolved shape travels inside the blob, so the receiver
 needs no options of its own:
 
 ```d
-auto opts = Opts().withMode(2).withChunkSize(65536).withWrapper(false).withMaxWorkers(4);
+auto opts = Opts().withMode(2).withInterlock("168").withChunkSize(65536).withWrapper(false).withMaxWorkers(4);
 auto sender = Pipeline.create("singlemsg-triple-mac-v1", opts);
 auto receiver = Pipeline.load(sender.save());
 ```

@@ -272,6 +272,7 @@ int finalSummary(ref RunState r, long elapsedNs) @trusted
         j ~= format(",\"blob_mode\":%d", cfg.blobMode);
         j ~= ",\"drbg\":" ~ jsonString(cfg.drbg);
         j ~= ",\"drbg_auto_tier\":" ~ jsonString(drbgAutoTier());
+        j ~= ",\"interlock\":" ~ jsonString(cfg.interlock);
         j ~= format(",\"chunk_size_bytes\":%d", cfg.chunkSize);
         j ~= format(",\"barrier_fill\":%d", cfg.barrierFill);
         j ~= format(",\"parallax\":\"%s\"", onOff(cfg.parallax));

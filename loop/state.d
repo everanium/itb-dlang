@@ -76,6 +76,7 @@ struct Config
     long chunkSize;         /// 0 = profile default
     int barrierFill;        /// 0 = profile default
     string drbg;            /// DRBG fill primitive; empty = profile default (auto tier)
+    string interlock;       /// Interlocked Barrier chunk width: 48 | 168; empty = profile default
     int gomaxprocs;         /// 0 = inherit from the environment
     long rekeyEvery;        /// per-worker iterations between rotations; 0 = never
     long blobCycleEvery;    /// per-worker iterations between reopens; 0 = never
