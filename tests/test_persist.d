@@ -74,6 +74,12 @@ void main()
         assert(tunedProf.toJson().canFind(`"container_mode":2`));
         assert(tunedProf.toJson().canFind(`"nonce_bits":256`));
         assert(tunedProf.toJson().canFind(`"barrier_fill":4`));
+
+        auto tuned3 = Pipeline.create("singlemsg-triple-mac-v1",
+                Opts().withMode(3));
+        auto tunedProf3 = inspect(tuned3.save());
+        assert(tunedProf3.containerMode.get == 3);
+        assert(tunedProf3.toJson().canFind(`"container_mode":3`));
     }
     {
         // The registry entry is the recipe alone — neither field is

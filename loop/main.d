@@ -246,7 +246,7 @@ private Flag[] flagTable(ref RawFlags f) @trusted
     addLong("blob-cycle-every", &f.blobCycleEvery,
             "reopen each pipeline from its session blob every N iterations per worker; 0 = never");
     addInt("blob-mode", &f.blobMode,
-            "container floor sizing mode: 1 (per-region, default) | 2 (per-container)");
+            "container floor sizing mode: 1 (per-region, default) | 2 (per-container) | 3 (gauss-posit)");
     addString("chunk-size", "string", &f.chunkSize,
             "streaming chunk-size budget (e.g. 4MB); 0 = profile default; inert for pure message shape");
     addString("drbg", "string", &f.drbg,
@@ -606,9 +606,10 @@ private int parseFlags(string[] argv, ref Config cfg) @safe
     {
     case 1:
     case 2:
+    case 3:
         break;
     default:
-        errLine(format("--blob-mode must be 1 (per-region) | 2 (per-container), got %d",
+        errLine(format("--blob-mode must be 1 (per-region) | 2 (per-container) | 3 (gauss-posit), got %d",
                 cfg.blobMode));
         return -1;
     }
@@ -726,8 +727,8 @@ private void logPipelineInitialised(string profile, scope const(ubyte)[] blob) @
             record.barrierFill.isNull ? 0 : record.barrierFill.get,
             record.chunkSize, record.macName.length ? record.macName : "-",
             onOff(record.parallax), onOff(record.wrapper));
-    if (!record.containerMode.isNull && record.containerMode.get == 2)
-        line ~= " container-mode=2";
+    if (!record.containerMode.isNull && (record.containerMode.get == 2 || record.containerMode.get == 3))
+        line ~= format(" container-mode=%d", record.containerMode.get);
     if (record.drbg.length)
         line ~= " drbg=" ~ record.drbg;
     if (record.interlock.length)
